@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracking System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        #street-view {
+            height: 200px;
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .order-info, .delivery-info {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .order-list {
+            margin-top: 20px;
+        }
+        .order-item {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+        .order-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+      <h1>Track Your Order</h1>
+        <div id="user-section">
+            <h2>Order Dashboard</h2>
+            <button class="button" onclick="placeOrder()">Place Order</button>
+            <div id="order-info" class="order-info"></div>
+            <div id="map"></div>
+            <div id="street-view"></div>
+        </div>
+        <div id="delivery-section" style="display: none;">
+            <h2>Delivery Dashboard</h2>
+            <div id="order-list" class="order-list"></div>
+        </div>
+    </div>
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEcallbackY&callback=initMap" async defer></script>
+    <script>
+        let map;
+        let streetView;
+        let userMarker;
+        let deliveryMarker;
+        let userLocation = { lat: 37.7749, lng: -122.4194 };
+        let deliveryLocation = { lat: 37.7859, lng: -122.4364 };
+        let orders = [];
+        let orderStatus = {};
+
+        function initMap() {
+            // Initialize Map
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: userLocation,
+                zoom: 13,
+            });
+
+            // Initialize Street View
+            streetView = new google.maps.StreetViewPanorama(
+                document.getElementById("street-view"),
+                {
+                    position: deliveryLocation,
+                    pov: { heading: 0, pitch: 0 },
+                    zoom: 1,
+                    disableDefaultUI: false,
+                }
+            );
+
+            // User Marker
+            userMarker = new google.maps.Marker({
+                position: userLocation,
+                map: map,
+                label: "User",
+                icon: {
+                    url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                },
+            });
+
+            // Delivery Marker
+            deliveryMarker = new google.maps.Marker({
+                position: deliveryLocation,
+                map: map,
+                label: "Delivery",
+                icon: {
+                    url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+                },
+            });
+
+            // Update user location with geolocation
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(
+                    (position) => {
+                        userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                        };
+                        userMarker.setPosition(userLocation);
+                        map.setCenter(userLocation);
+                    },
+                    (error) => {
+                        console.error("Geolocation error:", error);
+                    },
+                    { enableHighAccuracy: true }
+                );
+            }
+
+            // Simulate delivery movement
+            setInterval(() => {
+                if (Object.values(orderStatus).includes("Accepted")) {
+                    deliveryLocation.lat += 0.001;
+                    deliveryMarker.setPosition(deliveryLocation);
+                    streetView.setPosition(deliveryLocation);
+                }
+            }, 1000);
+        }
+
+        function generateOrderId() {
+            return "ORD-" + Math.random().toString(36).substr(2, 9).toUpperCase();
+        }
+
+        function placeOrder() {
+            const orderId = generateOrderId();
+            orders.push({ id: orderId, status: "Pending" });
+            orderStatus[orderId] = "Pending";
+            updateOrderInfo(orderId, "Pending");
+            updateDeliveryOrderList();
+            document.getElementById("delivery-section").style.display = "block";
+        }
+
+        function updateOrderInfo(orderId, status) {
+            const orderInfo = document.getElementById("order-info");
+            orderInfo.innerHTML = `
+                <p>Order ID: ${orderId}</p>
+                <p>Status: ${status}</p>
+                <p>Delivery Location: Lat ${deliveryLocation.lat.toFixed(4)}, Lng ${deliveryLocation.lng.toFixed(4)}</p>
+            `;
+        }
+
+        function updateDeliveryOrderList() {
+            const orderList = document.getElementById("order-list");
+            orderList.innerHTML = orders
+                .map(
+                    (order) => `
+                        <div class="order-item">
+                            <p>Order ID: ${order.id}</p>
+                            <p>Status: ${order.status}</p>
+                            <button class="button" onclick="acceptOrder('${order.id}')" ${
+                        order.status !== "Pending" ? "disabled" : ""
+                    }>Accept Order</button>
+                        </div>
+                    `
+                )
+                .join("");
+        }
+
+        function acceptOrder(orderId) {
+            orderStatus[orderId] = "Accepted";
+            orders = orders.map((order) =>
+                order.id === orderId ? { ...order, status: "Accepted" } : order
+            );
+            updateOrderInfo(orderId, "Accepted");
+            updateDeliveryOrderList();
+            // Update Street View to follow delivery
+            streetView.setPosition(deliveryLocation);
+        }
+    </script>
+</body>
+</html>
