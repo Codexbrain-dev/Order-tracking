@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>LocalBank Marketplace — Live Tracking</title>
+  <title>LocalBank Marketplace — Live Tracking (Fixed)</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <style>
     :root{--bg:#f4f7fb;--card:#fff;--accent:#0b67d0;--muted:#667085;--success:#16a34a;--danger:#e11d48;font-family:Inter,system-ui,Arial,sans-serif}
@@ -35,7 +35,7 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>LocalBank Marketplace — Live Tracking</h1>
+      <h1>LocalBank Marketplace — Live Tracking (Fixed)</h1>
       <div id="sessionBox" class="small">Not signed in</div>
     </header>
 
@@ -57,6 +57,17 @@
       </div>
       <div id="map"></div>
       <div class="tiny" style="margin-top:8px">Markers update live while the user has allowed location sharing in this browser session.</div>
+    </div>
+  </div>
+
+  <!-- Confirm modal reused (kept near map so handlers can find it) -->
+  <div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);align-items:center;justify-content:center;z-index:900">
+    <div class="card" style="width:360px;text-align:center">
+      <p style="margin:0 0 12px">Are you sure you want to continue this process?</p>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button id="confirmYes" class="btn">Continue</button>
+        <button id="confirmNo" class="btn ghost">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -118,17 +129,56 @@
         </div>
       </div>
     `;
+
     $('#root').innerHTML = html;
 
+    // Register
     $('#regForm').onsubmit = e=>{
-      e.preventDefault(); const name=$('#regName').value.trim(); const email=$('#regEmail').value.trim().toLowerCase(); const pass=$('#regPass').value; const role=$('#regRole').value;
+      e.preventDefault();
+      const name = $('#regName').value.trim();
+      const email = $('#regEmail').value.trim().toLowerCase();
+      const pass = $('#regPass').value;
+      const role = $('#regRole').value;
       if(users.find(u=>u.email===email)) return alert('Email exists');
-      users.push({id:rand('u'),name,email,password:pass,role,balance:0}); persist(); alert('Registered. Please login.'); $('#regForm').reset();
+      users.push({id:rand('u'),name,email,password:pass,role,balance:0});
+      persist();
+      alert('Registered. Please login.');
+      $('#regForm').reset();
     };
     $('#regReset').onclick = ()=>$('#regForm').reset();
-    $('#loginForm').onsubmit = e=>{ e.preventDefault(); const email=$('#logEmail').value.trim().toLowerCase(); const pass=$('#logPass').value; const u=users.find(x=>x.email===email && x.password===pass && x.role!=='admin'); if(!u) return alert('Invalid'); session={userId:u.id}; restoreLiveWatchers(); renderApp(); };
-    $('#guestBtn').onclick = ()=>{ let g = users.find(u=>u.role==='customer'); if(!g){ g={id:rand('u'),name:'Guest',email:'guest@localbank',password:'guest',role:'customer',balance:50}; users.push(g); persist(); } session={userId:g.id}; restoreLiveWatchers(); renderApp(); };
-    $('#adminForm').onsubmit = e=>{ e.preventDefault(); const email=$('#adminEmail').value.trim().toLowerCase(); const pass=$('#adminPass').value; const u=users.find(x=>x.email===email && x.password===pass && x.role==='admin'); if(!u) return alert('Invalid admin'); session={userId:u.id}; restoreLiveWatchers(); renderApp(); };
+
+    // Login (vendor/customer)
+    $('#loginForm').onsubmit = e=>{
+      e.preventDefault();
+      const email = $('#logEmail').value.trim().toLowerCase();
+      const pass = $('#logPass').value;
+      const u = users.find(x=>x.email===email && x.password===pass && x.role!=='admin');
+      if(!u) return alert('Invalid');
+      session = {userId:u.id};
+      restoreLiveWatchers();
+      renderApp();
+    };
+
+    $('#guestBtn').onclick = ()=>{
+      let g = users.find(u=>u.role==='customer');
+      if(!g){ g={id:rand('u'),name:'Guest',email:'guest@localbank',password:'guest',role:'customer',balance:50}; users.push(g); persist(); }
+      session = {userId:g.id};
+      restoreLiveWatchers();
+      renderApp();
+    };
+
+    // Admin login
+    $('#adminForm').onsubmit = e=>{
+      e.preventDefault();
+      const email = $('#adminEmail').value.trim().toLowerCase();
+      const pass = $('#adminPass').value;
+      const u = users.find(x=>x.email===email && x.password===pass && x.role==='admin');
+      if(!u) return alert('Invalid admin');
+      session = {userId:u.id};
+      restoreLiveWatchers();
+      renderApp();
+    };
+
     $('#showData').onclick = ()=>{ console.log({users,products,orders}); alert('Check console for raw data'); };
   }
 
@@ -161,6 +211,7 @@
     $('#adminUsers tbody').innerHTML = users.map(u=>`<tr><td>${u.name}</td><td>${u.email}</td><td>${u.role}</td><td>$${fmt(u.balance)}</td></tr>`).join('');
     $('#adminProducts tbody').innerHTML = products.map(p=>`<tr><td><img class="thumb" src="${(p.images&&p.images[0])||''}"/></td><td>${p.name}</td><td>$${fmt(p.price)}</td><td>${p.vendor}</td></tr>`).join('')||'<tr><td colspan="4">No products</td></tr>';
     renderAdminOrders();
+
     $('#adminAdj').onsubmit = e=>{ e.preventDefault(); const email=$('#adjEmail').value.trim().toLowerCase(); const amt=parseFloat($('#adjAmt').value)||0; const uu=users.find(x=>x.email===email); if(!uu) return alert('User not found'); uu.balance+=amt; persist(); alert('Updated'); renderAdmin(admin); };
     $('#dumpData').onclick = ()=>{ console.log({users,products,orders}); alert('See console'); };
     $('#resetAll').onclick = ()=>{ if(!confirm('Reset demo?')) return; localStorage.removeItem(K_USERS); localStorage.removeItem(K_PRODUCTS); localStorage.removeItem(K_ORDERS); location.reload(); };
@@ -188,86 +239,259 @@
       </div>
     `;
     $('#root').innerHTML = html;
-    $('#prodForm').onsubmit = async e=>{ e.preventDefault(); const name=$('#pName').value.trim(); const price=parseFloat($('#pPrice').value)||0; const files=$('#pImages').files; if(!name||!price) return alert('Name and price required'); const imgs=[]; for(let i=0;i<files.length;i++){ imgs.push(await fileToBase64(files[i])); } products.push({id:rand('p'),name,price,images:imgs,vendor:vendor.email}); persist(); alert('Added'); renderVendor(vendor); };
+
+    $('#prodForm').onsubmit = async e=>{
+      e.preventDefault();
+      const name = $('#pName').value.trim();
+      const price = parseFloat($('#pPrice').value)||0;
+      const files = $('#pImages').files;
+      if(!name||!price) return alert('Name and price required');
+      const imgs = [];
+      for(let i=0;i<files.length;i++){ imgs.push(await fileToBase64(files[i])); }
+      products.push({id:rand('p'),name,price,images:imgs,vendor:vendor.email});
+      persist();
+      alert('Added');
+      renderVendor(vendor);
+    };
+
     $('#clearUpload').onclick = ()=>{ $('#pImages').value=''; $('#pName').value=''; $('#pPrice').value=''; };
-    renderVendorProducts(vendor); renderVendorOrders(vendor);
+    renderVendorProducts(vendor);
+    renderVendorOrders(vendor);
   }
 
-  function renderVendorProducts(vendor){ const tbody=$('#vendorProductsTbl tbody'); const my=products.filter(p=>p.vendor===vendor.email); tbody.innerHTML = my.map(p=>`<tr><td><img class='thumb' src='${p.images[0]||''}'/></td><td>${p.name}</td><td>$${fmt(p.price)}</td><td><button class='btn ghost' onclick="viewProduct('${p.id}')">View</button></td></tr>`).join('')||'<tr><td colspan="4">No products</td></tr>'; }
+  function renderVendorProducts(vendor){
+    const tbody=$('#vendorProductsTbl tbody');
+    const my=products.filter(p=>p.vendor===vendor.email);
+    tbody.innerHTML = my.map(p=>`<tr><td><img class='thumb' src='${p.images[0]||''}'/></td><td>${p.name}</td><td>$${fmt(p.price)}</td><td><button class='btn ghost' onclick="viewProduct('${p.id}')">View</button></td></tr>`).join('')||'<tr><td colspan="4">No products</td></tr>';
+  }
 
-  function renderVendorOrders(vendor){ const tbody=$('#vendorOrdersTbl tbody'); const my=orders.filter(o=>o.vendor===vendor.email && o.status==='pending_vendor'); tbody.innerHTML = my.map(o=>`<tr><td>${o.product}</td><td>${o.customer}</td><td>$${fmt(o.price)}</td><td><button class='btn' onclick="vendorAccept('${o.id}')">Accept</button><button class='btn ghost' onclick="vendorReject('${o.id}')">Reject</button></td><td><button class='btn ghost' onclick="openMapForVendor('${o.id}')">View</button></td></tr>`).join('')||'<tr><td colspan="5">No pending orders</td></tr>'; }
+  function renderVendorOrders(vendor){
+    const tbody=$('#vendorOrdersTbl tbody');
+    const my=orders.filter(o=>o.vendor===vendor.email && o.status==='pending_vendor');
+    tbody.innerHTML = my.map(o=>`<tr><td>${o.product}</td><td>${o.customer}</td><td>$${fmt(o.price)}</td><td><button class='btn' onclick="vendorAccept('${o.id}')">Accept</button><button class='btn ghost' onclick="vendorReject('${o.id}')">Reject</button></td><td><button class='btn ghost' onclick="openMapForVendor('${o.id}')">View</button></td></tr>`).join('')||'<tr><td colspan="5">No pending orders</td></tr>';
+  }
 
   // CUSTOMER
-  function renderCustomer(customer){ const html=`
-    <div class="grid">
-      <div>
-        <div class="card"><h3>Customer</h3><div class="small">${customer.name} — Balance $${fmt(customer.balance)}</div></div>
-        <div class="card" style="margin-top:12px"><h3>Available Products</h3><table id="customerProducts"><thead><tr><th>Images</th><th>Product</th><th>Price</th><th>Vendor</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+  function renderCustomer(customer){
+    const html = `
+      <div class="grid">
+        <div>
+          <div class="card"><h3>Customer</h3><div class="small">${customer.name} — Balance $${fmt(customer.balance)}</div></div>
+          <div class="card" style="margin-top:12px"><h3>Available Products</h3><table id="customerProducts"><thead><tr><th>Images</th><th>Product</th><th>Price</th><th>Vendor</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+        </div>
+        <div>
+          <div class="card"><h3>Your Orders</h3><table id="customerOrdersTbl"><thead><tr><th>ID</th><th>Product</th><th>Vendor</th><th>Price</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+          <div class="card" style="margin-top:12px"><h3>Live Tracking</h3><div class="small">When vendor accepts, live vendor location will be shown. You can also start/stop sharing your live location for an order.</div></div>
+        </div>
       </div>
-      <div>
-        <div class="card"><h3>Your Orders</h3><table id="customerOrdersTbl"><thead><tr><th>ID</th><th>Product</th><th>Vendor</th><th>Price</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
-        <div class="card" style="margin-top:12px"><h3>Live Tracking</h3><div class="small">When vendor accepts, live vendor location will be shown. You can also start/stop sharing your live location for an order.</div></div>
-      </div>
-    </div>
-  `; $('#root').innerHTML = html; renderCustomerProducts(customer); renderCustomerOrders(customer); }
+    `;
+    $('#root').innerHTML = html;
+    renderCustomerProducts(customer);
+    renderCustomerOrders(customer);
+  }
 
-  function renderCustomerProducts(customer){ const tbody=$('#customerProducts tbody'); tbody.innerHTML = products.map(p=>{ const imgs=p.images||[]; return `<tr><td><img class='thumb' src='${imgs[0]||''}'/></td><td>${p.name}</td><td>$${fmt(p.price)}</td><td>${p.vendor}</td><td><button class='btn' onclick="initiatePurchase('${p.id}')">Buy</button> <button class='btn ghost' onclick="viewProduct('${p.id}')">View</button></td></tr>` }).join('')||'<tr><td colspan="5">No products</td></tr>'; }
+  function renderCustomerProducts(customer){
+    const tbody=$('#customerProducts tbody');
+    tbody.innerHTML = products.map(p=>{
+      const imgs=p.images||[];
+      return `<tr><td><img class='thumb' src='${imgs[0]||''}'/></td><td>${p.name}</td><td>$${fmt(p.price)}</td><td>${p.vendor}</td><td><button class='btn' onclick="initiatePurchase('${p.id}')">Buy</button> <button class='btn ghost' onclick="viewProduct('${p.id}')">View</button></td></tr>`;
+    }).join('')||'<tr><td colspan="5">No products</td></tr>';
+  }
 
-  function renderCustomerOrders(customer){ const tbody=$('#customerOrdersTbl tbody'); const my=orders.filter(o=>o.customer===customer.email); tbody.innerHTML = my.map(o=>`<tr><td>${o.id}</td><td>${o.product}</td><td>${o.vendor}</td><td>$${fmt(o.price)}</td><td>${o.status}</td><td>${o.status==='accepted'?`<button class='btn ghost' onclick="openMapForCustomer('${o.id}')">Track Vendor</button>`: (o.status==='pending_vendor'?`<button class='btn' onclick="startCustomerLive('${o.id}')">Share Live</button> <button class='btn ghost' onclick="stopCustomerLive('${o.id}')">Stop Sharing</button>`:'-')}</td></tr>`).join('')||'<tr><td colspan="6">No orders</td></tr>'; }
+  function renderCustomerOrders(customer){
+    const tbody=$('#customerOrdersTbl tbody');
+    const my=orders.filter(o=>o.customer===customer.email);
+    tbody.innerHTML = my.map(o=>`<tr><td>${o.id}</td><td>${o.product}</td><td>${o.vendor}</td><td>$${fmt(o.price)}</td><td>${o.status}</td><td>${o.status==='accepted'?`<button class='btn ghost' onclick="openMapForCustomer('${o.id}')">Track Vendor</button>`: (o.status==='pending_vendor'?`<button class='btn' onclick="startCustomerLive('${o.id}')">Share Live</button> <button class='btn ghost' onclick="stopCustomerLive('${o.id}')">Stop Sharing</button>`:'-')}</td></tr>`).join('')||'<tr><td colspan="6">No orders</td></tr>';
+  }
 
-  // product view
-  window.viewProduct = function(pid){ const p=products.find(x=>x.id===pid); if(!p) return alert('Not found'); const thumbs=p.images.map(img=>`<img style="width:120px;height:90px;object-fit:cover;margin:6px;border-radius:6px" src='${img}'/>`).join(''); const out=`<div style="font-family:Arial;padding:8px"> <h3>${p.name}</h3><div>$${fmt(p.price)}</div><div>By: ${p.vendor}</div><div style="margin-top:8px">${thumbs}</div></div>`; const w=window.open('','_blank','width=520,height=420'); w.document.write(out); };
+  // product view — open a proper HTML document in a new window (fix for document.write error)
+  window.viewProduct = function(pid){
+    const p = products.find(x=>x.id===pid);
+    if(!p) return alert('Not found');
+    const thumbs = (p.images||[]).map(img=>`<img style="width:120px;height:90px;object-fit:cover;margin:6px;border-radius:6px" src="${img}"/>`).join('');
+    const bodyHtml = `<div style="font-family:Arial;padding:8px"> <h3>${escapeHtml(p.name)}</h3><div>$${fmt(p.price)}</div><div>By: ${escapeHtml(p.vendor)}</div><div style="margin-top:8px">${thumbs}</div></div>`;
+    const full = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(p.name)}</title><style>body{font-family:Arial;margin:10px}</style></head><body>${bodyHtml}</body></html>`;
+    const w = window.open('','_blank','width=520,height=420');
+    if(!w) return alert('Popup blocked. Please allow popups for this site to view product details.');
+    try{
+      w.document.open();
+      w.document.write(full);
+      w.document.close();
+    }catch(err){
+      console.error('Failed to open product window',err);
+      alert('Unable to open product window');
+    }
+  };
 
   // PURCHASE flow with live tracking capability
-  let pendingProductId = null;
-  window.initiatePurchase = function(productId){ const buyer = users.find(u=>u.id===session.userId); if(!buyer) return alert('Session lost'); const p=products.find(x=>x.id===productId); if(!p) return alert('Product missing'); if(buyer.balance < p.price) return alert('Insufficient funds'); pendingProductId = productId; $('#confirmModal').style.display='flex'; $('#confirmYes').onclick = async ()=>{
-      try{ // capture customer snapshot and start watch if user chooses
-        const loc = await getCurrentPosition({enableHighAccuracy:true,timeout:10000}); const customerLoc={lat:loc.coords.latitude,lng:loc.coords.longitude,ts:Date.now()}; buyer.balance -= p.price; const order={id:rand('o'),product:p.name,productId:p.id,price:p.price,vendor:p.vendor,customer:buyer.email,status:'pending_vendor',customerLocation:customerLoc,createdAt:new Date().toISOString(),customerLive:false,vendorLive:false}; orders.push(order); persist(); alert('Order placed. Vendor must accept.'); renderCustomer(buyer);
-      }catch(err){ alert('Could not get location. Order placed without location.'); buyer.balance -= p.price; const order={id:rand('o'),product:p.name,productId:p.id,price:p.price,vendor:p.vendor,customer:buyer.email,status:'pending_vendor',customerLocation:null,createdAt:new Date().toISOString(),customerLive:false,vendorLive:false}; orders.push(order); persist(); renderCustomer(buyer); }
-      $('#confirmModal').style.display='none'; };
-    $('#confirmNo').onclick = ()=>{ $('#confirmModal').style.display='none'; };
+  window.initiatePurchase = function(productId){
+    const buyer = users.find(u=>u.id===session.userId);
+    if(!buyer) return alert('Session lost');
+    const p = products.find(x=>x.id===productId);
+    if(!p) return alert('Product missing');
+    if(buyer.balance < p.price) return alert('Insufficient funds');
+
+    // show confirm modal
+    const confirmModal = $('#confirmModal');
+    confirmModal.style.display = 'flex';
+
+    const yesBtn = $('#confirmYes');
+    const noBtn = $('#confirmNo');
+
+    // remove previous handlers
+    yesBtn.onclick = null;
+    noBtn.onclick = null;
+
+    yesBtn.onclick = async ()=>{
+      // attempt to capture a one-time location snapshot for the customer
+      try{
+        const loc = await getCurrentPosition({enableHighAccuracy:true,timeout:10000});
+        const customerLoc = {lat:loc.coords.latitude,lng:loc.coords.longitude,ts:Date.now()};
+        buyer.balance -= p.price;
+        const order = {id:rand('o'),product:p.name,productId:p.id,price:p.price,vendor:p.vendor,customer:buyer.email,status:'pending_vendor',customerLocation:customerLoc,createdAt:new Date().toISOString(),customerLive:false,vendorLive:false};
+        orders.push(order);
+        persist();
+        alert('Order placed. Vendor must accept.');
+        renderCustomer(buyer);
+      }catch(err){
+        // place order without location snapshot
+        buyer.balance -= p.price;
+        const order = {id:rand('o'),product:p.name,productId:p.id,price:p.price,vendor:p.vendor,customer:buyer.email,status:'pending_vendor',customerLocation:null,createdAt:new Date().toISOString(),customerLive:false,vendorLive:false};
+        orders.push(order);
+        persist();
+        renderCustomer(buyer);
+        alert('Order placed (no location).');
+      }
+      confirmModal.style.display = 'none';
+    };
+
+    noBtn.onclick = ()=>{ confirmModal.style.display = 'none'; };
   };
 
   // Vendor accept — starts vendor live watch (watchPosition)
-  window.vendorAccept = async function(orderId){ const order = orders.find(o=>o.id===orderId); if(!order) return alert('Order not found'); const vendorUser = users.find(u=>u.email===order.vendor);
-    try{ const loc = await getCurrentPosition({enableHighAccuracy:true,timeout:10000}); order.vendorLocation = {lat:loc.coords.latitude,lng:loc.coords.longitude,ts:Date.now()}; order.status='accepted'; persist(); // credit vendor immediately (vendor will also be credited on accept)
-      vendorUser.balance += order.price; persist(); // start live watch for vendor
+  window.vendorAccept = async function(orderId){
+    const order = orders.find(o=>o.id===orderId);
+    if(!order) return alert('Order not found');
+    const vendorUser = users.find(u=>u.email===order.vendor);
+    try{
+      const loc = await getCurrentPosition({enableHighAccuracy:true,timeout:10000});
+      order.vendorLocation = {lat:loc.coords.latitude,lng:loc.coords.longitude,ts:Date.now()};
+      order.status = 'accepted';
+      persist();
+
+      // credit vendor
+      vendorUser.balance += order.price;
+      persist();
+
+      // start live watch for vendor
       startVendorLive(orderId);
-      alert('Order accepted and vendor credited. Live tracking started.'); renderVendor(vendorUser);
-    }catch(err){ alert('Could not get vendor location. Accept aborted.'); }
+
+      alert('Order accepted and vendor credited. Live tracking started.');
+      renderVendor(vendorUser);
+    }catch(err){
+      alert('Could not get vendor location. Accept aborted.');
+    }
   };
 
-  window.vendorReject = function(orderId){ const order=orders.find(o=>o.id===orderId); if(!order) return alert('Order not found'); const customer = users.find(u=>u.email===order.customer); customer.balance += order.price; order.status='rejected'; persist(); alert('Order rejected and customer refunded'); const vendorUser = users.find(u=>u.email===order.vendor); renderVendor(vendorUser); };
+  window.vendorReject = function(orderId){
+    const order = orders.find(o=>o.id===orderId);
+    if(!order) return alert('Order not found');
+    const customer = users.find(u=>u.email===order.customer);
+    if(customer){ customer.balance += order.price; }
+    order.status = 'rejected';
+    persist();
+    alert('Order rejected and customer refunded');
+    const vendorUser = users.find(u=>u.email===order.vendor);
+    renderVendor(vendorUser);
+  };
 
   // ADMIN approve/reject (override)
-  window.adminApprove = function(orderId){ const order = orders.find(o=>o.id===orderId); if(!order) return alert('Order not found'); if(order.status==='accepted') return alert('Already accepted'); const vendor=users.find(u=>u.email===order.vendor); vendor.balance += order.price; order.status='accepted'; order.adminApprovedAt=new Date().toISOString(); persist(); // start vendor live if possible startVendorLive(orderId); alert('Admin approved and vendor credited'); renderAdmin(users.find(u=>u.role==='admin')); };
-  window.adminReject = function(orderId){ const order = orders.find(o=>o.id===orderId); if(!order) return alert('Order not found'); if(order.status==='rejected') return alert('Already rejected'); const customer=users.find(u=>u.email===order.customer); customer.balance += order.price; order.status='rejected'; order.adminRejectedAt=new Date().toISOString(); persist(); alert('Admin rejected and customer refunded'); renderAdmin(users.find(u=>u.role==='admin')); };
+  window.adminApprove = function(orderId){
+    const order = orders.find(o=>o.id===orderId);
+    if(!order) return alert('Order not found');
+    if(order.status==='accepted') return alert('Already accepted');
+    const vendor = users.find(u=>u.email===order.vendor);
+    if(vendor){ vendor.balance += order.price; }
+    order.status = 'accepted';
+    order.adminApprovedAt = new Date().toISOString();
+    persist();
+
+    // try to start vendor live (if admin triggers while vendor is available)
+    try{ startVendorLive(orderId); }catch(e){ /* ignore */ }
+
+    alert('Admin approved and vendor credited');
+    renderAdmin(users.find(u=>u.role==='admin'));
+  };
+
+  window.adminReject = function(orderId){
+    const order = orders.find(o=>o.id===orderId);
+    if(!order) return alert('Order not found');
+    if(order.status==='rejected') return alert('Already rejected');
+    const customer = users.find(u=>u.email===order.customer);
+    if(customer){ customer.balance += order.price; }
+    order.status = 'rejected';
+    order.adminRejectedAt = new Date().toISOString();
+    persist();
+    alert('Admin rejected and customer refunded');
+    renderAdmin(users.find(u=>u.role==='admin'));
+  };
 
   /* LIVE TRACKING functions using watchPosition */
-  function startVendorLive(orderId){ // only while vendor session active
+  function startVendorLive(orderId){
     if(liveWatchers.vendor[orderId]) return; // already watching
     if(!navigator.geolocation) return alert('Geolocation not supported');
     const watchId = navigator.geolocation.watchPosition(pos=>{
-      const o = orders.find(x=>x.id===orderId); if(!o) return; o.vendorLocation = {lat:pos.coords.latitude,lng:pos.coords.longitude,ts:Date.now()}; o.vendorLive = true; persist(); // if map open for this order, update markers
+      const o = orders.find(x=>x.id===orderId); if(!o) return;
+      o.vendorLocation = {lat:pos.coords.latitude,lng:pos.coords.longitude,ts:Date.now()};
+      o.vendorLive = true; persist();
       if(currentMapOrder && currentMapOrder.id===orderId) updateMapForOrder(currentMapOrder);
     }, err=>{ console.warn('watch error',err); }, {enableHighAccuracy:true,maximumAge:5000,timeout:10000});
     liveWatchers.vendor[orderId]=watchId;
   }
 
-  function stopVendorLive(orderId){ const id = liveWatchers.vendor[orderId]; if(id!=null){ navigator.geolocation.clearWatch(id); delete liveWatchers.vendor[orderId]; const o=orders.find(x=>x.id===orderId); if(o){ o.vendorLive=false; persist(); } } }
+  function stopVendorLive(orderId){
+    const id = liveWatchers.vendor[orderId];
+    if(id!=null){ navigator.geolocation.clearWatch(id); delete liveWatchers.vendor[orderId]; const o=orders.find(x=>x.id===orderId); if(o){ o.vendorLive=false; persist(); } }
+  }
 
-  function startCustomerLive(orderId){ if(liveWatchers.customer[orderId]) return; if(!navigator.geolocation) return alert('Geolocation not supported'); const watchId = navigator.geolocation.watchPosition(pos=>{ const o=orders.find(x=>x.id===orderId); if(!o) return; o.customerLocation={lat:pos.coords.latitude,lng:pos.coords.longitude,ts:Date.now()}; o.customerLive=true; persist(); if(currentMapOrder && currentMapOrder.id===orderId) updateMapForOrder(currentMapOrder); }, err=>{ console.warn('watch err',err); }, {enableHighAccuracy:true,maximumAge:5000,timeout:10000}); liveWatchers.customer[orderId]=watchId; alert('Started sharing your live location for this order'); renderCustomer(users.find(u=>u.id===session.userId)); }
+  function startCustomerLive(orderId){
+    if(liveWatchers.customer[orderId]) return;
+    if(!navigator.geolocation) return alert('Geolocation not supported');
+    const watchId = navigator.geolocation.watchPosition(pos=>{
+      const o = orders.find(x=>x.id===orderId); if(!o) return;
+      o.customerLocation = {lat:pos.coords.latitude,lng:pos.coords.longitude,ts:Date.now()};
+      o.customerLive = true; persist();
+      if(currentMapOrder && currentMapOrder.id===orderId) updateMapForOrder(currentMapOrder);
+    }, err=>{ console.warn('watch err',err); }, {enableHighAccuracy:true,maximumAge:5000,timeout:10000});
+    liveWatchers.customer[orderId]=watchId;
+    alert('Started sharing your live location for this order');
+    renderCustomer(users.find(u=>u.id===session.userId));
+  }
 
-  function stopCustomerLive(orderId){ const id = liveWatchers.customer[orderId]; if(id!=null){ navigator.geolocation.clearWatch(id); delete liveWatchers.customer[orderId]; const o=orders.find(x=>x.id===orderId); if(o){ o.customerLive=false; persist(); } alert('Stopped sharing live location'); renderCustomer(users.find(u=>u.id===session.userId)); } }
+  function stopCustomerLive(orderId){
+    const id = liveWatchers.customer[orderId];
+    if(id!=null){ navigator.geolocation.clearWatch(id); delete liveWatchers.customer[orderId]; const o=orders.find(x=>x.id===orderId); if(o){ o.customerLive=false; persist(); } alert('Stopped sharing live location'); renderCustomer(users.find(u=>u.id===session.userId)); }
+  }
 
   // helper to stop all live watchers for current user when sign out
-  function stopAllLiveWatchersForUser(user){ // clear any watches where this user is vendor or customer
-    orders.forEach(o=>{ if(o.vendor===user.email && liveWatchers.vendor[o.id]){ navigator.geolocation.clearWatch(liveWatchers.vendor[o.id]); delete liveWatchers.vendor[o.id]; } if(o.customer===user.email && liveWatchers.customer[o.id]){ navigator.geolocation.clearWatch(liveWatchers.customer[o.id]); delete liveWatchers.customer[o.id]; } }); }
+  function stopAllLiveWatchersForUser(user){
+    orders.forEach(o=>{
+      if(o.vendor===user.email && liveWatchers.vendor[o.id]){ navigator.geolocation.clearWatch(liveWatchers.vendor[o.id]); delete liveWatchers.vendor[o.id]; }
+      if(o.customer===user.email && liveWatchers.customer[o.id]){ navigator.geolocation.clearWatch(liveWatchers.customer[o.id]); delete liveWatchers.customer[o.id]; }
+    });
+  }
 
-  // restore watchers when user signs back in during same session (note: watchIds cannot be persisted, so we only re-create watchers if the browser prompts again here)
-  function restoreLiveWatchers(){ if(!session) return; const user = users.find(u=>u.id===session.userId); if(!user) return; // for vendors: resume watching accepted orders for this vendor
-    if(user.role==='vendor'){ orders.filter(o=>o.vendor===user.email && o.status==='accepted').forEach(o=>startVendorLive(o.id)); }
-    if(user.role==='customer'){ orders.filter(o=>o.customer===user.email && (o.status==='pending_vendor' || o.status==='accepted')).forEach(o=>{ if(o.customerLive) startCustomerLive(o.id); }); }
+  // restore watchers when user signs back in during same session
+  function restoreLiveWatchers(){
+    if(!session) return;
+    const user = users.find(u=>u.id===session.userId);
+    if(!user) return;
+    if(user.role==='vendor'){
+      orders.filter(o=>o.vendor===user.email && o.status==='accepted').forEach(o=>startVendorLive(o.id));
+    }
+    if(user.role==='customer'){
+      orders.filter(o=>o.customer===user.email && (o.status==='pending_vendor' || o.status==='accepted')).forEach(o=>{ if(o.customerLive) startCustomerLive(o.id); });
+    }
   }
 
   // MAP UI
@@ -275,26 +499,33 @@
   function openMapModal(){ $('#mapModal').style.display='flex'; }
   function closeMapModal(){ $('#mapModal').style.display='none'; }
 
-  function openMapForVendor(orderId){ const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found'); currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Vendor view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o); $('#mapRefresh').onclick = ()=> updateMapForOrder(o); $('#mapStop').onclick = ()=>{ stopVendorLive(o.id); alert('Stopped vendor live'); }; $('#mapClose').onclick = ()=>{ closeMapModal(); } }
-  function openMapForCustomer(orderId){ const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found'); currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Customer view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o); $('#mapRefresh').onclick = ()=> updateMapForOrder(o); $('#mapStop').onclick = ()=>{ stopCustomerLive(o.id); alert('Stopped sharing your live location'); }; $('#mapClose').onclick = ()=>{ closeMapModal(); } }
-  function openMapForAdmin(orderId){ const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found'); currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Admin view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o); $('#mapRefresh').onclick = ()=> updateMapForOrder(o); $('#mapStop').onclick = ()=>{ // allow admin to stop any live
-      stopVendorLive(o.id); stopCustomerLive(o.id); alert('Stopped live tracking for this order (admin)'); }; $('#mapClose').onclick = ()=>{ closeMapModal(); } }
+  function openMapForVendor(orderId){
+    const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+    currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Vendor view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o);
+    $('#mapRefresh').onclick = ()=> updateMapForOrder(o);
+    $('#mapStop').onclick = ()=>{ stopVendorLive(o.id); alert('Stopped vendor live'); };
+    $('#mapClose').onclick = ()=>{ closeMapModal(); };
+  }
+
+  function openMapForCustomer(orderId){
+    const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+    currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Customer view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o);
+    $('#mapRefresh').onclick = ()=> updateMapForOrder(o);
+    $('#mapStop').onclick = ()=>{ stopCustomerLive(o.id); alert('Stopped sharing your live location'); };
+    $('#mapClose').onclick = ()=>{ closeMapModal(); };
+  }
+
+  function openMapForAdmin(orderId){
+    const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+    currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Admin view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o);
+    $('#mapRefresh').onclick = ()=> updateMapForOrder(o);
+    $('#mapStop').onclick = ()=>{ stopVendorLive(o.id); stopCustomerLive(o.id); alert('Stopped live tracking for this order (admin)'); };
+    $('#mapClose').onclick = ()=>{ closeMapModal(); };
+  }
 
   function ensureMapInitialized(){ if(map) return; map = L.map('map').setView([0,0],2); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map); vendorMarker = L.marker([0,0]).addTo(map).bindPopup('Vendor'); customerMarker = L.marker([0,0]).addTo(map).bindPopup('Customer'); }
 
   function updateMapForOrder(order){ if(!map) return; const v = order.vendorLocation; const c = order.customerLocation; const points=[]; if(v){ vendorMarker.setLatLng([v.lat,v.lng]).bindPopup(`Vendor<br/>${new Date(v.ts).toLocaleString()}`); points.push([v.lat,v.lng]); } if(c){ customerMarker.setLatLng([c.lat,c.lng]).bindPopup(`Customer<br/>${new Date(c.ts).toLocaleString()}`); points.push([c.lat,c.lng]); } if(points.length) map.fitBounds(points,{maxZoom:15,padding:[50,50]}); }
-
-  // Customer controls to start/stop live for specific order
-  window.startCustomerLive = function(orderId){ startCustomerLive(orderId); };
-  window.stopCustomerLive = function(orderId){ stopCustomerLive(orderId); };
-
-  // vendor/customer accept/reject wrappers that re-render views
-  window.vendorAccept = async function(orderId){ await window.vendorAccept_original?.(orderId); }; // placeholder
-
-  // For safety: define original implementations referencing the functions above (we already defined vendorAccept earlier - ensure no overwrite)
-  // But because vendorAccept defined previously, ensure render functions call the correct ones. (No extra steps needed.)
-
-  // Admin approve/reject wrappers are already defined above
 
   // getCurrentPosition helper
   function getCurrentPosition(options){ return new Promise((res,rej)=>{ if(!navigator.geolocation) return rej(new Error('Geolocation not supported')); navigator.geolocation.getCurrentPosition(res,rej,options||{enableHighAccuracy:true,timeout:10000}); }); }
@@ -302,22 +533,14 @@
   // util file to base64
   function fileToBase64(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.onerror=rej; fr.readAsDataURL(file); }); }
 
-  // On load: render auth
+  // small helper to escape HTML when opening new windows
+  function escapeHtml(str){ return String(str).replace(/[&<>"']/g, (s)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;" })[s]); }
+
+  // initial render
   renderAuth();
 
   // Expose debug
   window._LB = {users,products,orders,persist,liveWatchers};
   </script>
-
-  <!-- Confirm modal reused (kept at bottom so handlers can find it) -->
-  <div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);align-items:center;justify-content:center;z-index:900">
-    <div class="card" style="width:360px;text-align:center">
-      <p style="margin:0 0 12px">Are you sure you want to continue this process?</p>
-      <div style="display:flex;gap:8px;justify-content:center">
-        <button id="confirmYes" class="btn">Continue</button>
-        <button id="confirmNo" class="btn ghost">Cancel</button>
-      </div>
-    </div>
-  </div>
 </body>
 </html>
