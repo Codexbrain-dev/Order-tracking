@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>LocalBank Marketplace — Responsive NGN Demo</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
+<style>
+  :root{
+    --bg:#f4f7fb; --card:#fff; --accent:#0b67d0; --muted:#667085;
+    --success:#16a34a; --danger:#e11d48; --text:#081128; --radius:10px;
+    font-family:Inter,system-ui,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+  header{background:var(--card);padding:12px;border-bottom:1px solid #eef3fb;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  header h1{margin:0;font-size:18px}
+  .container{max-width:1100px;margin:16px auto;padding:12px}
+  .card{background:var(--card);padding:12px;border-radius:var(--radius);box-shadow:0 6px 20px rgba(11,22,40,0.04);margin-bottom:12px}
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:12px}
+  .small{font-size:13px;color:var(--muted)}
+  input,select,textarea,button{font-family:inherit;font-size:14px}
+  input,select,textarea{width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #e6eef8}
+  textarea{min-height:80px;resize:vertical}
+  .btn{background:var(--accent);color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
+  .btn.ghost{background:transparent;color:var(--accent);border:1px solid rgba(11,103,208,0.12)}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid #eef3fb;text-align:left;font-size:13px}
+  img.thumb{width:64px;height:64px;object-fit:cover;border-radius:8px}
+  .star{color:#f6c400}
+  .badge{display:inline-block;background:var(--success);color:white;padding:4px 8px;border-radius:12px;font-size:12px}
+  .list-card{background:#fff;padding:10px;border-radius:10px;margin-bottom:8px;box-shadow:0 6px 18px rgba(11,22,40,0.03)}
+  .nav-bottom{display:none;position:fixed;inset:auto 0 0 0;height:56px;background:var(--card);border-top:1px solid #eef3fb;display:flex;gap:6px;align-items:center;justify-content:space-around;padding:6px}
+  #mapModal{display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);z-index:999;align-items:center;justify-content:center}
+  #mapFrame{width:90%;max-width:900px;height:75%;background:white;border-radius:8px;padding:10px;display:flex;flex-direction:column}
+  #map{flex:1;border-radius:6px}
+  .tiny{font-size:12px;color:var(--muted)}
+  .flex{display:flex;gap:8px;align-items:center}
+  .right{margin-left:auto}
+  .media-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  /* responsive adjustments */
+  @media (max-width:980px){
+    .grid{grid-template-columns:1fr;gap:10px}
+    header h1{font-size:16px}
+  }
+  @media (max-width:720px){
+    .container{padding:8px}
+    .card{padding:10px}
+    .nav-bottom{display:flex}
+    header{padding:10px}
+    #mapFrame{width:100%;height:100%;border-radius:0}
+    table, th, td{display:block}
+    th{font-weight:700;background:#fafcff;padding:8px}
+    td{padding:8px 8px 16px 8px;border:none;border-bottom:1px solid #f1f5f9}
+    .admin-table-card{display:block}
+  }
+  /* small touches for mobile */
+  @media (max-width:420px){
+    .btn{padding:12px}
+    input,textarea{padding:12px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LocalBank Marketplace — NGN Demo</h1>
+  <div id="sessionBox" class="small">Not signed in</div>
+</header>
+
+<div class="container">
+  <div id="root"></div>
+  <div style="margin-top:8px" class="small">Data persisted to <code>localStorage</code> keys: <code>lb_users</code>, <code>lb_products</code>, <code>lb_orders</code>. Currency: NGN (₦).</div>
+</div>
+
+<!-- bottom nav for mobile -->
+<nav class="nav-bottom" id="mobileNav">
+  <button class="btn ghost" onclick="navTo('home')">Home</button>
+  <button class="btn ghost" onclick="navTo('products')">Products</button>
+  <button class="btn ghost" onclick="navTo('orders')">Orders</button>
+  <button class="btn ghost" onclick="navTo('profile')">Profile</button>
+</nav>
+
+<!-- Map modal -->
+<div id="mapModal">
+  <div id="mapFrame" class="card">
+    <div style="display:flex;gap:8px;align-items:center">
+      <strong id="mapTitle">Tracking</strong>
+      <div class="right">
+        <button id="mapRefresh" class="btn">Refresh</button>
+        <button id="mapStop" class="btn ghost">Stop Live</button>
+        <button id="mapClose" class="btn ghost">Close</button>
+      </div>
+    </div>
+    <div id="map"></div>
+    <div class="tiny" style="margin-top:8px">Markers update live while the user has allowed location sharing in this browser session.</div>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);align-items:center;justify-content:center;z-index:900">
+  <div class="card" style="width:360px;text-align:center">
+    <p id="confirmText" style="margin:0 0 12px">Are you sure?</p>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button id="confirmYes" class="btn">Continue</button>
+      <button id="confirmNo" class="btn ghost">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+<script>
+/*
+  Single-file responsive LocalBank Marketplace
+  - localStorage-only backend
+  - admin: admin@aquaconnet / admin123
+  - NGN currency
+*/
+
+/* ---------- Config & Storage Keys ---------- */
+const K_USERS = 'lb_users', K_PRODUCTS = 'lb_products', K_ORDERS = 'lb_orders';
+const ADMIN_EMAIL = 'admin@aquaconnet';
+const ADMIN_PASS = 'admin123';
+
+/* ---------- Helpers ---------- */
+const $ = s => document.querySelector(s);
+const rand = p => (p||'id') + '_' + Math.random().toString(36).slice(2,9);
+const fmtNGN = n => new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:2}).format(Number(n)||0);
+const escapeHtml = str => String(str||'').replace(/[&<>\"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[s]);
+
+/* ---------- Data load/seed ---------- */
+let users = JSON.parse(localStorage.getItem(K_USERS) || 'null') || [
+  { id:'admin1', name:'Admin', email: ADMIN_EMAIL, password: ADMIN_PASS, role:'admin', balance:0, badge:false, requests:[], reviews:[], profile:{photo:null, desc:''}, cert:null }
+];
+let products = JSON.parse(localStorage.getItem(K_PRODUCTS) || 'null') || [];
+let orders = JSON.parse(localStorage.getItem(K_ORDERS) || 'null') || [];
+let session = null; // {userId}
+const liveWatchers = { vendor: {}, customer: {} }; // in-memory watch ids
+
+function persist(){
+  localStorage.setItem(K_USERS, JSON.stringify(users));
+  localStorage.setItem(K_PRODUCTS, JSON.stringify(products));
+  localStorage.setItem(K_ORDERS, JSON.stringify(orders));
+}
+function findUserByEmail(email){ return users.find(u=>u.email.toLowerCase()===String(email||'').toLowerCase()); }
+function getUserById(id){ return users.find(u=>u.id===id); }
+
+/* ---------- UI Navigation helpers ---------- */
+function navTo(page){
+  // simple nav helper for mobile bottom bar; for now re-render current role view with optional page param
+  if(!session){ renderAuth(); return; }
+  const me = getUserById(session.userId);
+  if(!me) return renderAuth();
+  if(me.role==='admin') renderAdmin(me);
+  if(me.role==='vendor') renderVendor(me);
+  if(me.role==='customer') renderCustomer(me);
+}
+
+/* ---------- Initial render (auth) ---------- */
+function renderAuth(){
+  $('#sessionBox').textContent = 'Not signed in';
+  document.getElementById('mobileNav').style.display = window.innerWidth <= 720 ? 'flex' : 'none';
+
+  const html = `
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h3>Register</h3>
+          <form id="regForm">
+            <input id="regName" placeholder="Full name" required />
+            <input id="regEmail" type="email" placeholder="Email" required />
+            <input id="regPass" type="password" placeholder="Password" required />
+            <select id="regRole"><option value="customer">Customer</option><option value="vendor">Vendor</option></select>
+            <div id="vendorExtra" style="display:none;margin-top:8px">
+              <label class="small">Profile Photo (optional)</label>
+              <input id="regPhoto" type="file" accept="image/*" />
+              <label class="small">Short Description</label>
+              <textarea id="regDesc" placeholder="Describe your business"></textarea>
+              <label class="small">Certificate (for verification)</label>
+              <input id="regCert" type="file" accept="image/*,application/pdf" />
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px"><button class="btn">Register</button><button id="regReset" type="button" class="btn ghost">Reset</button></div>
+          </form>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Login (Vendor/Customer)</h3>
+          <form id="loginForm">
+            <input id="logEmail" type="email" placeholder="Email" required />
+            <input id="logPass" type="password" placeholder="Password" required />
+            <div style="display:flex;gap:8px;margin-top:10px"><button class="btn">Login</button><button id="guestBtn" type="button" class="btn ghost">Guest (customer)</button></div>
+          </form>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h3>Admin Login</h3>
+          <form id="adminForm">
+            <input id="adminEmail" type="email" placeholder="Admin email" required />
+            <input id="adminPass" type="password" placeholder="Password" required />
+            <div style="display:flex;gap:8px;margin-top:10px"><button class="btn">Admin Login</button><button id="showData" type="button" class="btn ghost">Show Raw Data</button></div>
+          </form>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Demo Tips</h3>
+          <ul class="small">
+            <li>Use <strong>admin@aquaconnet</strong> / <strong>admin123</strong> to login as Admin.</li>
+            <li>Vendors can upload profile photo and certificate during registration or later.</li>
+            <li>To demo live tracking, accept an order as vendor and allow location access.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  `;
+  $('#root').innerHTML = html;
+
+  // behavior
+  $('#regRole').onchange = ()=>{ $('#vendorExtra').style.display = $('#regRole').value === 'vendor' ? 'block' : 'none'; };
+
+  $('#regForm').onsubmit = async e=>{
+    e.preventDefault();
+    const name = $('#regName').value.trim();
+    const email = $('#regEmail').value.trim().toLowerCase();
+    const pass = $('#regPass').value;
+    const role = $('#regRole').value;
+    if(findUserByEmail(email)) return alert('Email exists');
+    let photo = null, cert = null, desc = '';
+    if(role==='vendor'){
+      const f = $('#regPhoto').files[0]; if(f) photo = await fileToBase64(f);
+      const c = $('#regCert').files[0]; if(c) cert = await fileToBase64(c);
+      desc = $('#regDesc').value.trim();
+    }
+    const user = { id: rand('u'), name, email, password: pass, role, balance:0, badge:false, requests:[], reviews:[], profile:{photo, desc}, cert, status: cert ? 'cert_submitted' : 'no_cert' };
+    users.push(user); persist(); alert('Registered — please login.'); $('#regForm').reset(); $('#vendorExtra').style.display='none';
+  };
+
+  $('#regReset').onclick = ()=>$('#regForm').reset();
+
+  $('#loginForm').onsubmit = e=>{
+    e.preventDefault();
+    const email = $('#logEmail').value.trim().toLowerCase();
+    const pass = $('#logPass').value;
+    const u = users.find(x=>x.email===email && x.password===pass && x.role!=='admin');
+    if(!u) return alert('Invalid credentials');
+    session = { userId: u.id }; restoreLiveWatchers(); renderApp();
+  };
+
+  $('#guestBtn').onclick = ()=>{
+    let g = users.find(u=>u.role==='customer');
+    if(!g){
+      g = { id:rand('u'), name:'Guest', email:'guest@localbank', password:'guest', role:'customer', balance:5000, badge:false, requests:[], reviews:[], profile:{photo:null, desc:''} };
+      users.push(g); persist();
+    }
+    session = { userId: g.id }; restoreLiveWatchers(); renderApp();
+  };
+
+  $('#adminForm').onsubmit = e=>{
+    e.preventDefault();
+    const email = $('#adminEmail').value.trim().toLowerCase();
+    const pass = $('#adminPass').value;
+    const u = users.find(x=>x.email===email && x.password===pass && x.role==='admin');
+    if(!u) return alert('Invalid admin credentials');
+    session = { userId: u.id }; restoreLiveWatchers(); renderApp();
+  };
+
+  $('#showData').onclick = ()=>{ console.log({users,products,orders}); alert('Check console for raw data'); };
+}
+
+/* ---------- Main router ---------- */
+function renderApp(){
+  const me = getUserById(session.userId);
+  if(!me) { session=null; return renderAuth(); }
+  $('#sessionBox').textContent = `${me.name} — ${me.role} | Sign out`;
+  $('#sessionBox').onclick = ()=>{ if(confirm('Sign out?')){ stopAllLiveWatchersForUser(me); session=null; renderAuth(); } };
+  document.getElementById('mobileNav').style.display = window.innerWidth <= 720 ? 'flex' : 'none';
+  if(me.role==='admin') renderAdmin(me);
+  if(me.role==='vendor') renderVendor(me);
+  if(me.role==='customer') renderCustomer(me);
+}
+
+/* ---------- Admin view ---------- */
+function renderAdmin(admin){
+  const html = `
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h3>Users & Search</h3>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input id="adminSearch" placeholder="Search by name or email" />
+            <button id="adminSearchBtn" class="btn ghost">Search</button>
+          </div>
+          <div class="small">Total users: ${users.length}</div>
+          <div id="adminUsersList" style="margin-top:8px"></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Vendor Certificate Requests</h3>
+          <div id="certTable"></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Products</h3>
+          <div id="adminProducts"></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Orders</h3>
+          <div id="adminOrders"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h3>Account Adjust</h3>
+          <form id="adminAdj">
+            <input id="adjEmail" placeholder="User email" />
+            <input id="adjAmt" type="number" placeholder="Amount (+ credit, - debit)" />
+            <div style="display:flex;gap:8px;margin-top:8px"><button class="btn">Apply</button><button id="adminRefresh" type="button" class="btn ghost">Refresh</button></div>
+          </form>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Quick</h3>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button id="dumpData" class="btn ghost">Export Data (console)</button>
+            <button id="resetAll" class="btn ghost">Reset Demo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  $('#root').innerHTML = html;
+
+  function renderUsersList(list){
+    const out = list.map(u=>{
+      const photo = u.profile && u.profile.photo ? `<img class="thumb" src="${u.profile.photo}"/>` : '-';
+      return `<div class="list-card"><div style="display:flex;gap:12px;align-items:center"><div>${photo}</div><div><div style="font-weight:700">${escapeHtml(u.name)}</div><div class="small">${escapeHtml(u.email)}</div><div class="small">Role: ${u.role} • Balance: ${fmtNGN(u.balance)}</div></div><div class="right">${u.badge?'<span class="badge">Trusted</span>':''}</div></div></div>`;
+    }).join('');
+    $('#adminUsersList').innerHTML = out || '<div class="small">No users</div>';
+  }
+
+  renderUsersList(users);
+
+  const certs = users.filter(u=>u.role==='vendor' && u.cert);
+  $('#certTable').innerHTML = certs.length ? certs.map(c=>`<div class="list-card"><div style="display:flex;align-items:center;gap:8px"><div><strong>${escapeHtml(c.name)}</strong><div class="small">${escapeHtml(c.email)}</div></div><div class="right"><a href="#" onclick="openCert('${c.id}')">View Cert</a> <button class="btn" onclick="approveBadge('${c.id}')">Approve Badge</button> <button class="btn ghost" onclick="rejectCert('${c.id}')">Reject</button></div></div></div>`).join('') : '<div class="small">No certificates</div>';
+
+  $('#adminProducts').innerHTML = products.length ? products.map(p=>`<div class="list-card"><div style="display:flex;align-items:center;gap:10px"><div>${p.images && p.images[0] ? `<img class="thumb" src="${p.images[0]}"/>` : '-'}</div><div><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="small">${fmtNGN(p.price)}</div></div></div></div>`).join('') : '<div class="small">No products</div>';
+
+  $('#adminOrders').innerHTML = orders.length ? orders.map(o=>`<div class="list-card"><div style="display:flex;align-items:center;gap:10px"><div><div style="font-weight:700">${escapeHtml(o.product)}</div><div class="small">Customer: ${escapeHtml(o.customer)} • Vendor: ${escapeHtml(o.vendor)}</div><div class="small">Price: ${fmtNGN(o.price)}</div></div><div class="right">${o.status.startsWith('pending')?`<button class="btn" onclick="adminApprove('${o.id}')">Approve</button> <button class="btn ghost" onclick="adminReject('${o.id}')">Reject</button>`: o.status}</div></div></div>`).join('') : '<div class="small">No orders</div>';
+
+  // actions
+  $('#adminAdj').onsubmit = e=>{
+    e.preventDefault();
+    const email = $('#adjEmail').value.trim().toLowerCase();
+    const amt = Number($('#adjAmt').value) || 0;
+    const uu = findUserByEmail(email);
+    if(!uu) return alert('User not found');
+    uu.balance += amt; persist(); alert('Updated'); renderAdmin(admin);
+  };
+  $('#dumpData').onclick = ()=>{ console.log({users,products,orders}); alert('See console'); };
+  $('#resetAll').onclick = ()=>{ if(!confirm('Reset demo?')) return; localStorage.removeItem(K_USERS); localStorage.removeItem(K_PRODUCTS); localStorage.removeItem(K_ORDERS); location.reload(); };
+  $('#adminRefresh').onclick = ()=>renderAdmin(admin);
+  $('#adminSearchBtn').onclick = ()=>{ const q = $('#adminSearch').value.trim().toLowerCase(); const res = users.filter(u=>u.email.toLowerCase().includes(q) || u.name.toLowerCase().includes(q)); renderUsersList(res); };
+}
+
+// certificate helpers for admin
+function openCert(uid){ const u = users.find(x=>x.id===uid); if(!u || !u.cert) return alert('Not found'); const w = window.open('','_blank'); if(!w) return alert('Popup blocked'); w.document.open(); w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Certificate</title></head><body style="margin:0;padding:12px"><img src="${u.cert}" style="max-width:100%"/></body></html>`); w.document.close(); }
+window.approveBadge = function(uid){ const u = users.find(x=>x.id===uid); if(!u) return alert('Not found'); u.badge = true; u.cert = null; u.status='verified'; persist(); alert('Badge granted'); renderAdmin(users.find(x=>x.role==='admin')); };
+window.rejectCert = function(uid){ const u = users.find(x=>x.id===uid); if(!u) return alert('Not found'); u.cert = null; u.status='cert_rejected'; persist(); alert('Certificate rejected'); renderAdmin(users.find(x=>x.role==='admin')); };
+
+/* ---------- Vendor view ---------- */
+function renderVendor(vendor){
+  const html = `
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h3>Vendor Profile</h3>
+          <div style="display:flex;gap:12px;align-items:center">
+            <div>${vendor.profile.photo?`<img class="thumb" src="${vendor.profile.photo}"/>`:'-'}</div>
+            <div>
+              <div style="font-weight:700">${escapeHtml(vendor.name)} ${vendor.badge? '<span class="badge">Trusted</span>':''}</div>
+              <div class="small">${escapeHtml(vendor.profile.desc||'')}</div>
+              <div class="small">Rating: ${getVendorRating(vendor)} <span class="star">★</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Edit Profile</h3>
+          <form id="vendorProfileForm">
+            <label class="small">Profile Photo</label><input id="vpPhoto" type="file" accept="image/*" />
+            <label class="small">Description</label><textarea id="vpDesc">${escapeHtml(vendor.profile.desc||'')}</textarea>
+            <label class="small">Certificate (for verification)</label><input id="vpCert" type="file" accept="image/*,application/pdf" />
+            <div style="display:flex;gap:8px;margin-top:8px"><button class="btn">Save</button><button id="reqBadge" type="button" class="btn ghost">Request Badge</button></div>
+          </form>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Add Product (photos)</h3>
+          <form id="prodForm">
+            <input id="pName" placeholder="Product" required />
+            <input id="pPrice" type="number" placeholder="Price (NGN)" required />
+            <input id="pImages" type="file" accept="image/*" multiple />
+            <div style="display:flex;gap:8px;margin-top:8px"><button class="btn">Add</button><button id="clearUpload" type="button" class="btn ghost">Clear</button></div>
+          </form>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Your Products</h3>
+          <div id="vendorProductsTbl"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h3>Orders</h3>
+          <div id="vendorOrdersTbl"></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Live Tracking</h3>
+          <div class="small">When you accept an order, live tracking starts (browser will request permission). You can stop live updates anytime.</div>
+        </div>
+      </div>
+    </div>
+  `;
+  $('#root').innerHTML = html;
+
+  // profile save
+  $('#vendorProfileForm').onsubmit = async e=>{
+    e.preventDefault();
+    const f = $('#vpPhoto').files[0];
+    if(f) vendor.profile.photo = await fileToBase64(f);
+    vendor.profile.desc = $('#vpDesc').value.trim();
+    const c = $('#vpCert').files[0];
+    if(c){ vendor.cert = await fileToBase64(c); vendor.status = 'cert_submitted'; }
+    persist(); alert('Profile saved'); renderVendor(vendor);
+  };
+  $('#reqBadge').onclick = ()=>{
+    if(!vendor.cert) return alert('Please upload certificate first');
+    vendor.requests.push({ id:rand('req'), ts:Date.now(), status:'requested' });
+    persist(); alert('Badge request sent to admin'); renderVendor(vendor);
+  };
+
+  // add product
+  $('#prodForm').onsubmit = async e=>{
+    e.preventDefault();
+    const name = $('#pName').value.trim();
+    const price = Number($('#pPrice').value) || 0;
+    const files = $('#pImages').files;
+    if(!name || !price) return alert('Name and price required');
+    const imgs = [];
+    for(let i=0;i<files.length;i++) imgs.push(await fileToBase64(files[i]));
+    products.push({ id:rand('p'), name, price, images: imgs, vendor: vendor.email, description: '' });
+    persist(); alert('Added'); renderVendor(vendor);
+  };
+  $('#clearUpload').onclick = ()=>{ $('#pImages').value=''; $('#pName').value=''; $('#pPrice').value=''; };
+
+  // render lists
+  function renderVendorProducts(){
+    const my = products.filter(p=>p.vendor===vendor.email);
+    $('#vendorProductsTbl').innerHTML = my.length ? my.map(p=>`<div class="list-card"><div style="display:flex;align-items:center;gap:8px"><div>${p.images[0]?`<img class="thumb" src="${p.images[0]}"/>`:'-'}</div><div><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="small">${fmtNGN(p.price)}</div></div><div class="right"><button class="btn ghost" onclick="viewProductWithVendor('${p.id}')">View</button></div></div></div>`).join('') : '<div class="small">No products</div>';
+  }
+  function renderVendorOrders(){
+    const my = orders.filter(o=>o.vendor===vendor.email);
+    $('#vendorOrdersTbl').innerHTML = my.length ? my.map(o=>{
+      let actions = '';
+      if(o.status==='pending_vendor') actions = `<button class="btn" onclick="vendorAccept('${o.id}')">Accept</button> <button class="btn ghost" onclick="vendorReject('${o.id}')">Reject</button>`;
+      else if(o.status==='accepted') actions = `<button class="btn" onclick="markDelivered('${o.id}')">Mark Delivered</button>`;
+      else actions = o.status;
+      return `<div class="list-card"><div style="display:flex;align-items:center;gap:10px"><div><div style="font-weight:700">${escapeHtml(o.product)}</div><div class="small">Customer: ${escapeHtml(o.customer)}</div><div class="small">${fmtNGN(o.price)}</div></div><div class="right">${actions} <button class="btn ghost" onclick="openMapForVendor('${o.id}')">Track</button></div></div></div>`;
+    }).join('') : '<div class="small">No orders</div>';
+  }
+
+  renderVendorProducts();
+  renderVendorOrders();
+}
+
+/* ---------- Customer view ---------- */
+function renderCustomer(customer){
+  const html = `
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h3>Customer</h3>
+          <div class="small">${escapeHtml(customer.name)} — Balance ${fmtNGN(customer.balance)}</div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Available Products</h3>
+          <div id="customerProducts"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h3>Your Orders</h3>
+          <div id="customerOrdersTbl"></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Live Tracking</h3>
+          <div class="small">When vendor accepts, live vendor location will be shown. You can also start/stop sharing your live location for an order.</div>
+        </div>
+      </div>
+    </div>
+  `;
+  $('#root').innerHTML = html;
+
+  function renderProducts(){
+    $('#customerProducts').innerHTML = products.length ? products.map(p=>`<div class="list-card"><div style="display:flex;gap:8px;align-items:center"><div>${p.images && p.images[0] ? `<img class="thumb" src="${p.images[0]}"/>`:'-'}</div><div><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="small">${fmtNGN(p.price)} • ${escapeHtml(p.vendor)}</div></div><div class="right"><button class="btn" onclick="initiatePurchase('${p.id}')">Buy</button> <button class="btn ghost" onclick="viewProductWithVendor('${p.id}')">View</button></div></div></div>`).join('') : '<div class="small">No products</div>';
+  }
+
+  function renderOrders(){
+    const my = orders.filter(o=>o.customer===customer.email);
+    $('#customerOrdersTbl').innerHTML = my.length ? my.map(o=>{
+      const actions = renderCustomerOrderActions(o);
+      return `<div class="list-card"><div style="display:flex;align-items:center;gap:10px"><div><div style="font-weight:700">${escapeHtml(o.product)}</div><div class="small">Vendor: ${escapeHtml(o.vendor)}</div><div class="small">${fmtNGN(o.price)} • ${o.status}</div></div><div class="right">${actions}</div></div></div>`;
+    }).join('') : '<div class="small">No orders</div>';
+  }
+
+  renderProducts();
+  renderOrders();
+}
+
+/* customer action render for each order */
+function renderCustomerOrderActions(o){
+  if(o.status==='pending_vendor') return `<button class="btn" onclick="cancelOrder('${o.id}')">Cancel (full refund)</button>`;
+  if(o.status==='accepted') return `<button class="btn" onclick="cancelAcceptedOrderFlow('${o.id}')">Cancel (20% fee)</button> <button class="btn ghost" onclick="openMapForCustomer('${o.id}')">Track</button>`;
+  if(o.status==='delivered') return `<button class="btn" onclick="leaveReview('${o.id}')">Leave Review</button>`;
+  if(o.status==='cancelled' || o.status==='rejected') return o.status;
+  return '-';
+}
+
+/* ---------- Product + Vendor view (new window) ---------- */
+window.viewProductWithVendor = function(pid){
+  const p = products.find(x=>x.id===pid); if(!p) return alert('Product not found');
+  const vendor = findUserByEmail(p.vendor); if(!vendor) return alert('Vendor missing');
+  const imgs = (p.images||[]).map(img=>`<img src="${img}" style="max-width:160px;height:110px;object-fit:cover;border-radius:6px;margin:6px"/>`).join('');
+  const reviews = (vendor.reviews||[]);
+  const reviewsHtml = reviews.length ? reviews.map(r=>`<div style="border-top:1px solid #eee;padding:6px"><strong>${escapeHtml(r.customer)}</strong> <span class="star">${'★'.repeat(r.stars)}</span><div>${escapeHtml(r.comment)}</div></div>`).join('') : '<div class="small">No reviews yet</div>';
+  const vendorPhoto = vendor.profile.photo ? `<img src="${vendor.profile.photo}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;"/>` : `<div style="width:80px;height:80px;background:#eee;border-radius:8px"></div>`;
+  const badgeHtml = vendor.badge ? `<span class="badge">Trusted</span>` : '';
+  const out = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(p.name)}</title><style>body{font-family:Arial;padding:12px}</style></head><body>
+    <div style="display:flex;gap:12px;align-items:center">${vendorPhoto}<div><h2>${escapeHtml(vendor.name)} ${badgeHtml}</h2><div>${escapeHtml(vendor.profile.desc||'')}</div><div style="margin-top:6px">Rating: ${getVendorRating(vendor)} ★</div></div></div>
+    <hr/>
+    <h3>Product — ${escapeHtml(p.name)}</h3>
+    <div style="display:flex;flex-wrap:wrap">${imgs}</div>
+    <div style="margin-top:8px;font-weight:700">Price: ${fmtNGN(p.price)}</div>
+    <div style="margin-top:12px"><h4>Reviews</h4>${reviewsHtml}</div>
+  </body></html>`;
+  const w = window.open('','_blank','width=720,height=700');
+  if(!w) return alert('Popup blocked — allow popups to view product details');
+  w.document.open(); w.document.write(out); w.document.close();
+};
+
+/* ---------- Purchase & Cancel logic ---------- */
+window.initiatePurchase = function(productId){
+  const buyer = getUserById(session.userId);
+  if(!buyer) return alert('Session lost');
+  const p = products.find(x=>x.id===productId);
+  if(!p) return alert('Product missing');
+  if(buyer.balance < p.price) return alert('Insufficient funds');
+
+  showConfirm(`Are you sure you want to purchase ${p.name} for ${fmtNGN(p.price)}?`, async ()=>{
+    // try capture location snapshot for customer
+    try{
+      const loc = await getCurrentPosition({enableHighAccuracy:true,timeout:10000});
+      const customerLoc = {lat:loc.coords.latitude, lng:loc.coords.longitude, ts:Date.now()};
+      buyer.balance -= p.price;
+      const order = { id:rand('o'), product:p.name, productId:p.id, price:p.price, vendor:p.vendor, customer:buyer.email, status:'pending_vendor', customerLocation: customerLoc, createdAt:new Date().toISOString(), customerLive:false, vendorLive:false };
+      orders.push(order); persist(); alert('Order placed. Vendor must accept.'); renderCustomer(buyer);
+    }catch(err){
+      buyer.balance -= p.price;
+      const order = { id:rand('o'), product:p.name, productId:p.id, price:p.price, vendor:p.vendor, customer:buyer.email, status:'pending_vendor', customerLocation:null, createdAt:new Date().toISOString(), customerLive:false, vendorLive:false };
+      orders.push(order); persist(); renderCustomer(buyer); alert('Order placed (no location).');
+    }
+  });
+};
+
+/* cancel before acceptance — full refund */
+window.cancelOrder = function(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order missing'); if(o.status!=='pending_vendor') return alert('Cannot cancel at this stage here');
+  const customer = findUserByEmail(o.customer);
+  if(customer){ customer.balance += o.price; }
+  orders = orders.filter(x=>x.id!==orderId); persist();
+  alert('Order cancelled and full refund issued');
+  renderCustomer(getUserById(session.userId));
+};
+
+/* cancel after acceptance — 20% fee and distribution */
+window.cancelAcceptedOrderFlow = function(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order missing'); if(o.status!=='accepted') return alert('Order not in accepted state');
+  // first prompt
+  showConfirm(`This order has been accepted and is on the way. Cancelling this order will charge 20% of ${fmtNGN(o.price)} as a cancellation fee. Continue?`, ()=>{
+    // second confirm
+    showConfirm('Are you sure you want to cancel this order?', ()=>{
+      const fee = Number((o.price * 0.20).toFixed(2)); // 20% numeric
+      const refund = Number((o.price - fee).toFixed(2)); // 80% refunded
+      const vendorShare = Number((fee * 0.75).toFixed(2)); // 75% of fee to vendor
+      const adminShare = Number((fee * 0.25).toFixed(2)); // 25% of fee to admin
+      const vendor = findUserByEmail(o.vendor);
+      const admin = users.find(u=>u.role==='admin');
+      const customer = findUserByEmail(o.customer);
+      // Customer already paid full at placement; refund 80%
+      if(customer) customer.balance += refund;
+      // Vendor had been credited full at acceptance, so deduct (full - vendorShare) to leave vendor with vendorShare
+      if(vendor){ vendor.balance = Number((vendor.balance - (o.price - vendorShare)).toFixed(2)); }
+      if(admin){ admin.balance = Number((admin.balance + adminShare).toFixed(2)); }
+      o.status = 'cancelled'; o.cancelledAt = new Date().toISOString();
+      o.cancellation = { fee, refund, vendorShare, adminShare };
+      persist();
+      alert(`Your order has been cancelled. You were charged ${fmtNGN(fee)} (20%).`);
+      renderCustomer(getUserById(session.userId));
+      renderVendor(findUserByEmail(o.vendor));
+      renderAdmin(users.find(u=>u.role==='admin'));
+    });
+  });
+};
+
+/* vendor actions */
+window.vendorAccept = async function(orderId){
+  const order = orders.find(o=>o.id===orderId); if(!order) return alert('Order not found');
+  const vendorUser = findUserByEmail(order.vendor);
+  try{
+    const loc = await getCurrentPosition({enableHighAccuracy:true,timeout:10000});
+    order.vendorLocation = { lat:loc.coords.latitude, lng:loc.coords.longitude, ts:Date.now() };
+    order.status = 'accepted'; persist();
+    // credit vendor immediately
+    vendorUser.balance = Number((vendorUser.balance + order.price).toFixed(2));
+    persist();
+    startVendorLive(orderId);
+    alert('Order accepted and vendor credited. Live tracking started.');
+    renderVendor(vendorUser);
+  }catch(err){
+    alert('Could not get vendor location. Accept aborted.');
+  }
+};
+window.vendorReject = function(orderId){
+  const order = orders.find(o=>o.id===orderId); if(!order) return alert('Order not found');
+  const customer = findUserByEmail(order.customer);
+  if(customer) customer.balance += order.price;
+  order.status = 'rejected'; persist();
+  alert('Order rejected and customer refunded');
+  renderVendor(findUserByEmail(order.vendor));
+};
+window.markDelivered = function(orderId){
+  const order = orders.find(o=>o.id===orderId); if(!order) return alert('Order not found');
+  order.status = 'delivered'; order.deliveredAt = new Date().toISOString(); persist();
+  alert('Order marked delivered — customer may leave review');
+  renderVendor(findUserByEmail(order.vendor));
+  renderCustomer(getUserById(session.userId));
+};
+
+/* customer reviews */
+window.leaveReview = function(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+  if(o.status!=='delivered') return alert('Can only review delivered orders');
+  const customer = getUserById(session.userId);
+  const vendor = findUserByEmail(o.vendor);
+  const stars = Number(prompt('Rating (1-5 stars):','5'));
+  if(!stars || stars<1 || stars>5) return alert('Invalid rating');
+  const comment = prompt('Leave a comment (optional):','') || '';
+  vendor.reviews = vendor.reviews || [];
+  vendor.reviews.push({ orderId: o.id, customer: customer.name, stars: Math.round(stars), comment, ts: Date.now() });
+  persist();
+  alert('Thanks for your review');
+  renderCustomer(customer);
+};
+
+/* admin approve/reject orders override */
+window.adminApprove = function(orderId){
+  const order = orders.find(o=>o.id===orderId); if(!order) return alert('Not found');
+  if(order.status==='accepted') return alert('Already accepted');
+  const vendor = findUserByEmail(order.vendor);
+  if(vendor){ vendor.balance = Number((vendor.balance + order.price).toFixed(2)); }
+  order.status = 'accepted'; order.adminApprovedAt = new Date().toISOString(); persist();
+  try{ startVendorLive(orderId); }catch(e){}
+  alert('Admin approved and vendor credited');
+  renderAdmin(users.find(u=>u.role==='admin'));
+};
+window.adminReject = function(orderId){
+  const order = orders.find(o=>o.id===orderId); if(!order) return alert('Not found');
+  if(order.status==='rejected') return alert('Already rejected');
+  const customer = findUserByEmail(order.customer);
+  if(customer) customer.balance += order.price;
+  order.status = 'rejected'; order.adminRejectedAt = new Date().toISOString(); persist();
+  alert('Admin rejected and customer refunded');
+  renderAdmin(users.find(u=>u.role==='admin'));
+};
+
+/* ---------- Live tracking helpers ---------- */
+function startVendorLive(orderId){
+  if(liveWatchers.vendor[orderId]) return;
+  if(!navigator.geolocation) return;
+  const watchId = navigator.geolocation.watchPosition(pos=>{
+    const o = orders.find(x=>x.id===orderId); if(!o) return;
+    o.vendorLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
+    o.vendorLive = true; persist();
+    if(currentMapOrder && currentMapOrder.id===orderId) updateMapForOrder(currentMapOrder);
+  }, err=>console.warn('watch error',err), { enableHighAccuracy:true, maximumAge:5000, timeout:10000 });
+  liveWatchers.vendor[orderId] = watchId;
+}
+function stopVendorLive(orderId){
+  const id = liveWatchers.vendor[orderId];
+  if(id!=null){ navigator.geolocation.clearWatch(id); delete liveWatchers.vendor[orderId]; const o = orders.find(x=>x.id===orderId); if(o){ o.vendorLive=false; persist(); } }
+}
+function startCustomerLive(orderId){
+  if(liveWatchers.customer[orderId]) return;
+  if(!navigator.geolocation) return alert('Geolocation not supported');
+  const watchId = navigator.geolocation.watchPosition(pos=>{
+    const o = orders.find(x=>x.id===orderId); if(!o) return;
+    o.customerLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
+    o.customerLive = true; persist();
+    if(currentMapOrder && currentMapOrder.id===orderId) updateMapForOrder(currentMapOrder);
+  }, err=>console.warn('watch err',err), { enableHighAccuracy:true, maximumAge:5000, timeout:10000 });
+  liveWatchers.customer[orderId] = watchId;
+  alert('Started sharing your live location for this order');
+  renderCustomer(getUserById(session.userId));
+}
+function stopCustomerLive(orderId){
+  const id = liveWatchers.customer[orderId];
+  if(id!=null){ navigator.geolocation.clearWatch(id); delete liveWatchers.customer[orderId]; const o = orders.find(x=>x.id===orderId); if(o){ o.customerLive=false; persist(); } alert('Stopped sharing live location'); renderCustomer(getUserById(session.userId)); }
+}
+function stopAllLiveWatchersForUser(user){
+  orders.forEach(o=>{
+    if(o.vendor===user.email && liveWatchers.vendor[o.id]){ navigator.geolocation.clearWatch(liveWatchers.vendor[o.id]); delete liveWatchers.vendor[o.id]; }
+    if(o.customer===user.email && liveWatchers.customer[o.id]){ navigator.geolocation.clearWatch(liveWatchers.customer[o.id]); delete liveWatchers.customer[o.id]; }
+  });
+}
+function restoreLiveWatchers(){
+  if(!session) return;
+  const user = getUserById(session.userId);
+  if(!user) return;
+  if(user.role==='vendor'){
+    orders.filter(o=>o.vendor===user.email && o.status==='accepted').forEach(o=>startVendorLive(o.id));
+  }
+  if(user.role==='customer'){
+    orders.filter(o=>o.customer===user.email && (o.status==='pending_vendor' || o.status==='accepted')).forEach(o=>{ if(o.customerLive) startCustomerLive(o.id); });
+  }
+}
+
+/* ---------- Map UI ---------- */
+let map, vendorMarker, customerMarker, currentMapOrder = null;
+function openMapModal(){ $('#mapModal').style.display = 'flex'; }
+function closeMapModal(){ $('#mapModal').style.display = 'none'; }
+function ensureMapInitialized(){
+  if(map) return;
+  map = L.map('map').setView([0,0],2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19 }).addTo(map);
+  vendorMarker = L.marker([0,0]).addTo(map).bindPopup('Vendor');
+  customerMarker = L.marker([0,0]).addTo(map).bindPopup('Customer');
+}
+function updateMapForOrder(order){
+  if(!map) return;
+  const v = order.vendorLocation, c = order.customerLocation;
+  const points = [];
+  if(v){ vendorMarker.setLatLng([v.lat,v.lng]).bindPopup(`Vendor<br/>${new Date(v.ts).toLocaleString()}`); points.push([v.lat,v.lng]); }
+  if(c){ customerMarker.setLatLng([c.lat,c.lng]).bindPopup(`Customer<br/>${new Date(c.ts).toLocaleString()}`); points.push([c.lat,c.lng]); }
+  if(points.length) map.fitBounds(points,{ maxZoom:15, padding:[50,50] });
+}
+function openMapForVendor(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+  currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Vendor view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o);
+  $('#mapRefresh').onclick = ()=>updateMapForOrder(o);
+  $('#mapStop').onclick = ()=>{ stopVendorLive(o.id); alert('Stopped vendor live'); };
+  $('#mapClose').onclick = ()=>closeMapModal();
+}
+function openMapForCustomer(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+  currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Customer view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o);
+  $('#mapRefresh').onclick = ()=>updateMapForOrder(o);
+  $('#mapStop').onclick = ()=>{ stopCustomerLive(o.id); alert('Stopped sharing your live location'); };
+  $('#mapClose').onclick = ()=>closeMapModal();
+}
+function openMapForAdmin(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+  currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Admin view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o);
+  $('#mapRefresh').onclick = ()=>updateMapForOrder(o);
+  $('#mapStop').onclick = ()=>{ stopVendorLive(o.id); stopCustomerLive(o.id); alert('Stopped live tracking for this order (admin)'); };
+  $('#mapClose').onclick = ()=>closeMapModal();
+}
+
+/* ---------- Utility helpers ---------- */
+function getCurrentPosition(options){ return new Promise((res, rej)=>{ if(!navigator.geolocation) return rej(new Error('Geolocation not supported')); navigator.geolocation.getCurrentPosition(res, rej, options||{ enableHighAccuracy:true, timeout:10000 }); }); }
+function fileToBase64(file){ return new Promise((res, rej)=>{ const fr = new FileReader(); fr.onload = e=>res(e.target.result); fr.onerror = rej; fr.readAsDataURL(file); }); }
+function showConfirm(text, onYes){ $('#confirmText').textContent = text; $('#confirmModal').style.display = 'flex'; const yes = $('#confirmYes'), no = $('#confirmNo'); yes.onclick = ()=>{ $('#confirmModal').style.display = 'none'; onYes && onYes(); }; no.onclick = ()=>{ $('#confirmModal').style.display = 'none'; }; }
+function getVendorRating(vendor){ const r = vendor.reviews||[]; if(!r.length) return '0.0'; const avg = r.reduce((s,x)=>s+x.stars,0)/r.length; return Number(avg.toFixed(1)); }
+
+/* ---------- Certificate & badge request helpers ---------- */
+function approveBadge(uid){ const u = users.find(x=>x.id===uid); if(!u) return alert('Not found'); u.badge = true; u.cert = null; u.status='verified'; persist(); alert('Badge granted'); renderAdmin(users.find(x=>x.role==='admin')); }
+function rejectCert(uid){ const u = users.find(x=>x.id===uid); if(!u) return alert('Not found'); u.cert = null; u.status='cert_rejected'; persist(); alert('Certificate rejected'); renderAdmin(users.find(x=>x.role==='admin')); }
+
+/* ---------- Debug export ---------- */
+window._LB = { users, products, orders, persist };
+
+/* ---------- First render ---------- */
+renderAuth();
+
+/* make sure map reacts to window resize and mobile nav visibility */
+window.addEventListener('resize', ()=>{ document.getElementById('mobileNav').style.display = window.innerWidth <= 720 ? 'flex' : 'none'; });
+
+</script>
+</body>
+</html>
