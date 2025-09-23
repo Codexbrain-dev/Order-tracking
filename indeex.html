@@ -1,202 +1,991 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tracking System</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        #map {
-            height: 400px;
-            width: 100%;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        #street-view {
-            height: 200px;
-            width: 100%;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .button {
-            background: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 10px 0;
-        }
-        .button:hover {
-            background: #45a049;
-        }
-        .order-info, .delivery-info {
-            margin: 10px 0;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        .order-list {
-            margin-top: 20px;
-        }
-        .order-item {
-            padding: 10px;
-            border-bottom: 1px solid #ccc;
-        }
-        .order-item:last-child {
-            border-bottom: none;
-        }
-    </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>LocalBank Marketplace — Full Responsive NGN Demo</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
+<style>
+  :root{
+    --bg:#f4f7fb; --card:#fff; --accent:#0b67d0; --muted:#667085;
+    --success:#16a34a; --danger:#e11d48; --text:#081128; --radius:12px;
+    font-family:Inter,system-ui,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+  header{background:var(--card);padding:12px;border-bottom:1px solid #eef3fb;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  header h1{margin:0;font-size:18px}
+  .container{max-width:720px;margin:12px auto;padding:12px}
+  .card{background:var(--card);padding:12px;border-radius:var(--radius);box-shadow:0 6px 20px rgba(11,22,40,0.04);margin-bottom:12px}
+  .grid{display:grid;grid-template-columns:1fr 320px;gap:12px}
+  .small{font-size:13px;color:var(--muted)}
+  input,select,textarea,button{font-family:inherit;font-size:14px}
+  input,select,textarea{width:100%;padding:10px;margin-top:8px;border-radius:10px;border:1px solid #e6eef8}
+  textarea{min-height:80px;resize:vertical}
+  .btn{background:var(--accent);color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
+  .btn.ghost{background:transparent;color:var(--accent);border:1px solid rgba(11,103,208,0.12)}
+  .btn.warn{background:var(--danger)}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid #eef3fb;text-align:left;font-size:13px}
+  img.thumb{width:64px;height:64px;object-fit:cover;border-radius:8px}
+  .star{color:#f6c400}
+  .badge{display:inline-block;background:var(--success);color:white;padding:4px 8px;border-radius:12px;font-size:12px}
+  .list-card{background:#fff;padding:10px;border-radius:12px;margin-bottom:8px;box-shadow:0 6px 18px rgba(11,22,40,0.03)}
+  .nav-bottom{display:none;position:fixed;inset:auto 0 0 0;height:56px;background:var(--card);border-top:1px solid #eef3fb;display:flex;gap:6px;align-items:center;justify-content:space-around;padding:6px;z-index:50}
+  #mapModal{display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);z-index:999;align-items:center;justify-content:center}
+  #mapFrame{width:92%;max-width:900px;height:78%;background:white;border-radius:10px;padding:10px;display:flex;flex-direction:column}
+  #map{flex:1;border-radius:6px}
+  .tiny{font-size:12px;color:var(--muted)}
+  .flex{display:flex;gap:8px;align-items:center}
+  .right{margin-left:auto}
+  .media-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .wallet-card{background:linear-gradient(180deg,#fff,#f8fbff);border-radius:14px;padding:12px;box-shadow:0 8px 20px rgba(11,22,40,0.06);display:flex;align-items:center;gap:12px}
+  .wallet-left{flex:1}
+  .wallet-name{font-weight:700}
+  .wallet-amount{font-size:20px;font-weight:700;color:var(--accent)}
+  .tx-icon{font-size:20px;cursor:pointer}
+  .transactions{background:#fff;border-radius:10px;padding:10px;margin-top:8px;box-shadow:0 6px 18px rgba(11,22,40,0.03)}
+  .tx-item{display:flex;justify-content:space-between;padding:8px 6px;border-bottom:1px dashed #eef3fb}
+  .tx-item:last-child{border-bottom:none}
+  /* modal for product/vendor */
+  .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);z-index:1000;align-items:center;justify-content:center}
+  .modal-card{width:92%;max-width:760px;background:var(--card);border-radius:12px;padding:12px;box-shadow:0 12px 40px rgba(11,22,40,0.08);max-height:90vh;overflow:auto}
+  .product-images{display:flex;gap:8px;flex-wrap:wrap}
+  .product-images img{width:150px;height:110px;object-fit:cover;border-radius:8px}
+  /* badge queue item */
+  .badge-req{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:#fff;margin-bottom:8px;box-shadow:0 6px 18px rgba(11,22,40,0.03)}
+  /* responsive adjustments - mobile first */
+  @media (max-width:720px){
+    .grid{grid-template-columns:1fr;gap:10px}
+    header h1{font-size:16px}
+    .nav-bottom{display:flex}
+    #mapFrame{width:100%;height:100%;border-radius:0}
+    table, th, td{display:block}
+    th{font-weight:700;background:#fafcff;padding:8px}
+    td{padding:8px 8px 16px 8px;border:none;border-bottom:1px solid #f1f5f9}
+    .modal-card{height:100vh;border-radius:0}
+    .product-images img{width:45%;height:140px}
+  }
+  @media (max-width:420px){
+    .btn{padding:12px}
+    input,textarea{padding:12px}
+  }
+</style>
 </head>
 <body>
-    <div class="container">
-      <h1>Track Your Order</h1>
-        <div id="user-section">
-            <h2>Order Dashboard</h2>
-            <button class="button" onclick="placeOrder()">Place Order</button>
-            <div id="order-info" class="order-info"></div>
-            <div id="map"></div>
-            <div id="street-view"></div>
-        </div>
-        <div id="delivery-section" style="display: none;">
-            <h2>Delivery Dashboard</h2>
-            <div id="order-list" class="order-list"></div>
-        </div>
+
+<header>
+  <h1>LocalBank Marketplace — NGN Demo</h1>
+  <div id="sessionBox" class="small">Not signed in</div>
+</header>
+
+<div class="container">
+  <div id="root"></div>
+  <div class="small" style="margin-top:8px">Data persisted to <code>localStorage</code> keys: <code>lb_users</code>, <code>lb_products</code>, <code>lb_orders</code>, <code>lb_badge_requests</code>. Currency: NGN (₦).</div>
+</div>
+
+<nav class="nav-bottom" id="mobileNav">
+  <button class="btn ghost" onclick="navTo('home')">Home</button>
+  <button class="btn ghost" onclick="navTo('products')">Products</button>
+  <button class="btn ghost" onclick="navTo('orders')">Orders</button>
+  <button class="btn ghost" onclick="navTo('profile')">Profile</button>
+</nav>
+
+<!-- Product / Vendor modal -->
+<div id="modalBackdrop" class="modal-backdrop">
+  <div class="modal-card" id="modalCard">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div id="modalVendorPhoto" style="width:84px;height:84px;border-radius:8px;background:#eee;flex:0 0 84px;overflow:hidden"></div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px"><div id="modalVendorName" style="font-weight:700"></div><div id="modalVendorBadge"></div></div>
+        <div class="small" id="modalVendorDesc"></div>
+        <div style="margin-top:6px">Rating: <span id="modalVendorRating">0.0</span> <span class="star">★</span></div>
+      </div>
+      <div class="right"><button class="btn ghost" onclick="closeModal()">Close</button></div>
     </div>
 
-    <script>
-        let map;
-        let streetView;
-        let userMarker;
-        let deliveryMarker;
-        let userLocation = { lat: 37.7749, lng: -122.4194 };
-        let deliveryLocation = { lat: 37.7859, lng: -122.4364 };
-        let orders = [];
-        let orderStatus = {};
+    <hr/>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div>
+        <h3 id="modalProductName">Product</h3>
+        <div class="product-images" id="modalProductImages"></div>
+        <div style="margin-top:8px;font-weight:700" id="modalProductPrice"></div>
+        <div class="small" id="modalProductVendorInfo"></div>
+        <div style="margin-top:8px"><button class="btn" id="modalBuyBtn">Buy</button></div>
+      </div>
 
-        function initMap() {
-            // Initialize Map
-            map = new google.maps.Map(document.getElementById("map"), {
-                center: userLocation,
-                zoom: 13,
-            });
+      <div>
+        <h4>Reviews</h4>
+        <div id="modalReviews"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
-            // Initialize Street View
-            streetView = new google.maps.StreetViewPanorama(
-                document.getElementById("street-view"),
-                {
-                    position: deliveryLocation,
-                    pov: { heading: 0, pitch: 0 },
-                    zoom: 1,
-                    disableDefaultUI: false,
-                }
-            );
+<!-- Map modal -->
+<div id="mapModal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);z-index:999;align-items:center;justify-content:center">
+  <div id="mapFrame" class="card">
+    <div style="display:flex;gap:8px;align-items:center">
+      <strong id="mapTitle">Tracking</strong>
+      <div class="right">
+        <button id="mapRefresh" class="btn">Refresh</button>
+        <button id="mapStop" class="btn ghost">Stop Live</button>
+        <button id="mapClose" class="btn ghost">Close</button>
+      </div>
+    </div>
+    <div id="map"></div>
+    <div class="tiny" style="margin-top:8px">Markers update live while the user has allowed location sharing in this browser session.</div>
+  </div>
+</div>
 
-            // User Marker
-            userMarker = new google.maps.Marker({
-                position: userLocation,
-                map: map,
-                label: "User",
-                icon: {
-                    url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-                },
-            });
+<!-- Confirm modal -->
+<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);align-items:center;justify-content:center;z-index:900">
+  <div class="card" style="width:360px;text-align:center">
+    <p id="confirmText" style="margin:0 0 12px">Are you sure?</p>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button id="confirmYes" class="btn">Continue</button>
+      <button id="confirmNo" class="btn ghost">Cancel</button>
+    </div>
+  </div>
+</div>
 
-            // Delivery Marker
-            deliveryMarker = new google.maps.Marker({
-                position: deliveryLocation,
-                map: map,
-                label: "Delivery",
-                icon: {
-                    url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                },
-            });
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
-            // Update user location with geolocation
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(
-                    (position) => {
-                        userLocation = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude,
-                        };
-                        userMarker.setPosition(userLocation);
-                        map.setCenter(userLocation);
-                    },
-                    (error) => {
-                        console.error("Geolocation error:", error);
-                    },
-                    { enableHighAccuracy: true }
-                );
-            }
+<script>
+/*
+  Complete single-file application
+  - localStorage-only backend
+  - admin: admin@aquaconnet / admin123 seeded
+  - badge requests saved under lb_badge_requests
+*/
 
-            // Simulate delivery movement
-            setInterval(() => {
-                if (Object.values(orderStatus).includes("Accepted")) {
-                    deliveryLocation.lat += 0.001;
-                    deliveryMarker.setPosition(deliveryLocation);
-                    streetView.setPosition(deliveryLocation);
-                }
-            }, 1000);
-        }
+/* Keys */
+const K_USERS = 'lb_users', K_PRODUCTS = 'lb_products', K_ORDERS = 'lb_orders', K_BADGE = 'lb_badge_requests';
+const ADMIN_EMAIL = 'admin@aquaconnet', ADMIN_PASS = 'admin123';
 
-        function generateOrderId() {
-            return "ORD-" + Math.random().toString(36).substr(2, 9).toUpperCase();
-        }
+/* Helpers */
+const $ = s => document.querySelector(s);
+const rand = p => (p||'id') + '_' + Math.random().toString(36).slice(2,9);
+const fmtNGN = n => new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:2}).format(Number(n)||0);
+const escapeHtml = str => String(str||'').replace(/[&<>\"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[s]);
 
-        function placeOrder() {
-            const orderId = generateOrderId();
-            orders.push({ id: orderId, status: "Pending" });
-            orderStatus[orderId] = "Pending";
-            updateOrderInfo(orderId, "Pending");
-            updateDeliveryOrderList();
-            document.getElementById("delivery-section").style.display = "block";
-        }
+/* Load / seed */
+let users = JSON.parse(localStorage.getItem(K_USERS) || 'null') || [
+  { id:'admin1', name:'Admin', email: ADMIN_EMAIL, password: ADMIN_PASS, role:'admin', balance:0, badge:false, requests:[], reviews:[], profile:{photo:null, desc:''}, cert:null, transactions:[] }
+];
+let products = JSON.parse(localStorage.getItem(K_PRODUCTS) || 'null') || [];
+let orders = JSON.parse(localStorage.getItem(K_ORDERS) || 'null') || [];
+let badgeRequests = JSON.parse(localStorage.getItem(K_BADGE) || 'null') || []; // {id,vendorId,vendorEmail,ts,status}
+let session = null;
+const liveWatchers = { vendor: {}, customer: {} };
 
-        function updateOrderInfo(orderId, status) {
-            const orderInfo = document.getElementById("order-info");
-            orderInfo.innerHTML = `
-                <p>Order ID: ${orderId}</p>
-                <p>Status: ${status}</p>
-                <p>Delivery Location: Lat ${deliveryLocation.lat.toFixed(4)}, Lng ${deliveryLocation.lng.toFixed(4)}</p>
-            `;
-        }
+function persist(){
+  localStorage.setItem(K_USERS, JSON.stringify(users));
+  localStorage.setItem(K_PRODUCTS, JSON.stringify(products));
+  localStorage.setItem(K_ORDERS, JSON.stringify(orders));
+  localStorage.setItem(K_BADGE, JSON.stringify(badgeRequests));
+}
 
-        function updateDeliveryOrderList() {
-            const orderList = document.getElementById("order-list");
-            orderList.innerHTML = orders
-                .map(
-                    (order) => `
-                        <div class="order-item">
-                            <p>Order ID: ${order.id}</p>
-                            <p>Status: ${order.status}</p>
-                            <button class="button" onclick="acceptOrder('${order.id}')" ${
-                        order.status !== "Pending" ? "disabled" : ""
-                    }>Accept Order</button>
-                        </div>
-                    `
-                )
-                .join("");
-        }
+/* Finders */
+function findUserByEmail(email){ return users.find(u=>u.email.toLowerCase()===String(email||'').toLowerCase()); }
+function getUserById(id){ return users.find(u=>u.id===id); }
 
-        function acceptOrder(orderId) {
-            orderStatus[orderId] = "Accepted";
-            orders = orders.map((order) =>
-                order.id === orderId ? { ...order, status: "Accepted" } : order
-            );
-            updateOrderInfo(orderId, "Accepted");
-            updateDeliveryOrderList();
-            // Update Street View to follow delivery
-            streetView.setPosition(deliveryLocation);
-        }
-    </script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCVXx-QfnLLIRHAORaULiObCyCfK5QfR0U&callback=initMap&libraries=&v=weekly" async defer></script>
+/* Transactions logger */
+function addTransaction(userEmail, type, amount, note){
+  const u = findUserByEmail(userEmail);
+  if(!u) return;
+  u.transactions = u.transactions || [];
+  // store positive amounts for credits, negative for debits where appropriate
+  const amt = Number(amount);
+  u.transactions.unshift({ id: rand('tx'), ts: Date.now(), type, amount: amt, note });
+  persist();
+}
+
+/* ---------- AUTH / ENTRY ---------- */
+function renderAuth(){
+  $('#sessionBox').textContent = 'Not signed in';
+  document.getElementById('mobileNav').style.display = window.innerWidth <= 720 ? 'flex' : 'none';
+
+  const html = `
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h3>Register</h3>
+        <form id="regForm">
+          <input id="regName" placeholder="Full name" required />
+          <input id="regEmail" type="email" placeholder="Email" required />
+          <input id="regPass" type="password" placeholder="Password" required />
+          <select id="regRole"><option value="customer">Customer</option><option value="vendor">Vendor</option></select>
+          <div id="vendorExtra" style="display:none;margin-top:8px">
+            <label class="small">Profile Photo (optional)</label>
+            <input id="regPhoto" type="file" accept="image/*" />
+            <label class="small">Short Description</label>
+            <textarea id="regDesc" placeholder="Describe your business"></textarea>
+            <label class="small">Certificate (for verification)</label>
+            <input id="regCert" type="file" accept="image/*,application/pdf" />
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px"><button class="btn">Register</button><button id="regReset" type="button" class="btn ghost">Reset</button></div>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Login (Vendor/Customer)</h3>
+        <form id="loginForm">
+          <input id="logEmail" type="email" placeholder="Email" required />
+          <input id="logPass" type="password" placeholder="Password" required />
+          <div style="display:flex;gap:8px;margin-top:10px"><button class="btn">Login</button><button id="guestBtn" type="button" class="btn ghost">Guest (customer)</button></div>
+        </form>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Admin Login</h3>
+        <form id="adminForm">
+          <input id="adminEmail" type="email" placeholder="Admin email" required />
+          <input id="adminPass" type="password" placeholder="Password" required />
+          <div style="display:flex;gap:8px;margin-top:10px"><button class="btn">Admin Login</button><button id="showData" type="button" class="btn ghost">Show Raw Data</button></div>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Demo Tips</h3>
+        <ul class="small">
+          <li>Admin: <strong>${ADMIN_EMAIL}</strong> / <strong>${ADMIN_PASS}</strong></li>
+          <li>Vendors can upload photo & certificate at registration or later.</li>
+          <li>Allow location for live tracking features.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  `;
+  $('#root').innerHTML = html;
+
+  $('#regRole').onchange = ()=>{ $('#vendorExtra').style.display = $('#regRole').value === 'vendor' ? 'block' : 'none'; };
+
+  $('#regForm').onsubmit = async e=>{
+    e.preventDefault();
+    const name = $('#regName').value.trim();
+    const email = $('#regEmail').value.trim().toLowerCase();
+    const pass = $('#regPass').value;
+    const role = $('#regRole').value;
+    if(findUserByEmail(email)) return alert('Email exists');
+    let photo = null, cert = null, desc = '';
+    if(role==='vendor'){
+      const f = $('#regPhoto').files[0]; if(f) photo = await fileToBase64(f);
+      const c = $('#regCert').files[0]; if(c) cert = await fileToBase64(c);
+      desc = $('#regDesc').value.trim();
+    }
+    const user = { id: rand('u'), name, email, password: pass, role, balance:0, badge:false, requests:[], reviews:[], profile:{photo, desc}, cert, status: cert ? 'cert_submitted' : 'no_cert', transactions: [] };
+    users.push(user); persist();
+    alert('Registered — please login.');
+    $('#regForm').reset(); $('#vendorExtra').style.display = 'none';
+  };
+  $('#regReset').onclick = ()=>$('#regForm').reset();
+
+  $('#loginForm').onsubmit = e=>{
+    e.preventDefault();
+    const email = $('#logEmail').value.trim().toLowerCase();
+    const pass = $('#logPass').value;
+    const u = users.find(x=>x.email===email && x.password===pass && x.role!=='admin');
+    if(!u) return alert('Invalid credentials');
+    session = { userId: u.id }; restoreLiveWatchers(); renderApp();
+  };
+
+  $('#guestBtn').onclick = ()=>{
+    let g = users.find(u=>u.role==='customer');
+    if(!g){
+      g = { id:rand('u'), name:'Guest', email:'guest@localbank', password:'guest', role:'customer', balance:5000, badge:false, requests:[], reviews:[], profile:{photo:null, desc:''}, transactions: [] };
+      users.push(g); persist();
+    }
+    session = { userId: g.id }; restoreLiveWatchers(); renderApp();
+  };
+
+  $('#adminForm').onsubmit = e=>{
+    e.preventDefault();
+    const email = $('#adminEmail').value.trim().toLowerCase();
+    const pass = $('#adminPass').value;
+    const u = users.find(x=>x.email===email && x.password===pass && x.role==='admin');
+    if(!u) return alert('Invalid admin credentials');
+    session = { userId: u.id }; restoreLiveWatchers(); renderApp();
+  };
+
+  $('#showData').onclick = ()=>{ console.log({users,products,orders,badgeRequests}); alert('Check console for raw data'); };
+}
+
+/* ---------- Router ---------- */
+function renderApp(){
+  const me = getUserById(session.userId);
+  if(!me){ session=null; return renderAuth(); }
+  $('#sessionBox').textContent = `${me.name} — ${me.role} | Sign out`;
+  $('#sessionBox').onclick = ()=>{ if(confirm('Sign out?')){ stopAllLiveWatchersForUser(me); session=null; renderAuth(); } };
+  document.getElementById('mobileNav').style.display = window.innerWidth <= 720 ? 'flex' : 'none';
+  if(me.role==='admin') renderAdmin(me);
+  if(me.role==='vendor') renderVendor(me);
+  if(me.role==='customer') renderCustomer(me);
+}
+function navTo(page){ if(!session) return renderAuth(); renderApp(); }
+
+/* ---------- Admin UI ---------- */
+function renderAdmin(admin){
+  const html = `
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h3>Users & Search</h3>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input id="adminSearch" placeholder="Search by name or email" />
+          <button id="adminSearchBtn" class="btn ghost">Search</button>
+        </div>
+        <div class="small">Total users: ${users.length}</div>
+        <div id="adminUsersList" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Badge Request Queue</h3>
+        <div id="badgeQueue"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Products</h3>
+        <div id="adminProducts"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Orders</h3>
+        <div id="adminOrders"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Admin Wallet</h3>
+        <div class="wallet-card">
+          <div class="wallet-left">
+            <div class="wallet-name">${escapeHtml(admin.name)}</div>
+            <div class="wallet-amount">${fmtNGN(admin.balance)}</div>
+            <div class="small">Admin Wallet (earns 5% commission when vendors accept orders)</div>
+          </div>
+          <div><div class="tx-icon" onclick="toggleTransactionsView('${admin.email}')">📜</div></div>
+        </div>
+        <div id="adminTransactionsPanel" class="transactions" style="display:none"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Account Adjust</h3>
+        <form id="adminAdj">
+          <input id="adjEmail" placeholder="User email" />
+          <input id="adjAmt" type="number" placeholder="Amount (+ credit, - debit)" />
+          <div style="display:flex;gap:8px;margin-top:8px"><button class="btn">Apply</button><button id="adminRefresh" type="button" class="btn ghost">Refresh</button></div>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Admin Settings</h3>
+        <form id="adminSettingsForm">
+          <input id="admName" placeholder="Admin name" />
+          <input id="admEmail" placeholder="Admin email" />
+          <input id="admPass" type="password" placeholder="Admin password" />
+          <div style="display:flex;gap:8px;margin-top:8px"><button class="btn">Save</button><button id="adminLoad" type="button" class="btn ghost">Load</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+  `;
+  $('#root').innerHTML = html;
+
+  function renderUsersList(list){
+    const out = list.map(u=>{
+      const photo = u.profile && u.profile.photo ? `<img class="thumb" src="${u.profile.photo}"/>` : '-';
+      return `<div class="list-card"><div style="display:flex;gap:12px;align-items:center"><div>${photo}</div><div><div style="font-weight:700">${escapeHtml(u.name)}</div><div class="small">${escapeHtml(u.email)}</div><div class="small">Role: ${u.role} • Balance: ${fmtNGN(u.balance)}</div></div><div class="right">${u.badge?'<span class="badge">Trusted</span>':''}</div></div></div>`;
+    }).join('');
+    $('#adminUsersList').innerHTML = out || '<div class="small">No users</div>';
+  }
+  renderUsersList(users);
+
+  // badge queue
+  $('#badgeQueue').innerHTML = badgeRequests.length ? badgeRequests.map(r=>{
+    const vendor = getUserById(r.vendorId) || {};
+    return `<div class="badge-req"><div><div style="font-weight:700">${escapeHtml(vendor.name || r.vendorEmail)}</div><div class="small">${escapeHtml(r.vendorEmail)} • ${new Date(r.ts).toLocaleString()}</div></div><div><button class="btn" onclick="adminApproveBadgeRequest('${r.id}')">Approve</button><button class="btn ghost" onclick="adminRejectBadgeRequest('${r.id}')">Reject</button></div></div>`;
+  }).join('') : '<div class="small">No badge requests</div>';
+
+  $('#adminProducts').innerHTML = products.length ? products.map(p=>`<div class="list-card"><div style="display:flex;align-items:center;gap:10px"><div>${p.images && p.images[0] ? `<img class="thumb" src="${p.images[0]}"/>` : '-'}</div><div><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="small">${fmtNGN(p.price)} • ${escapeHtml(p.vendor)}</div></div></div></div>`).join('') : '<div class="small">No products</div>';
+
+  $('#adminOrders').innerHTML = orders.length ? orders.map(o=>`<div class="list-card"><div style="display:flex;align-items:center;gap:10px"><div><div style="font-weight:700">${escapeHtml(o.product)}</div><div class="small">Customer: ${escapeHtml(o.customer)} • Vendor: ${escapeHtml(o.vendor)}</div><div class="small">Price: ${fmtNGN(o.price)}</div></div><div class="right">${o.status.startsWith('pending')?`<button class="btn" onclick="adminApprove('${o.id}')">Approve</button> <button class="btn ghost" onclick="adminReject('${o.id}')">Reject</button>`: o.status}</div></div></div>`).join('') : '<div class="small">No orders</div>';
+
+  // actions
+  $('#adminAdj').onsubmit = e=>{
+    e.preventDefault();
+    const email = $('#adjEmail').value.trim().toLowerCase();
+    const amt = Number($('#adjAmt').value) || 0;
+    const uu = findUserByEmail(email);
+    if(!uu) return alert('User not found');
+    uu.balance = Number((uu.balance + amt).toFixed(2));
+    addTransaction(uu.email, amt>0 ? 'credit' : 'debit', amt, 'Admin adjustment');
+    persist();
+    alert('Updated'); renderAdmin(admin);
+  };
+  $('#adminLoad').onclick = ()=>{
+    const a = users.find(u=>u.role==='admin');
+    if(!a) return alert('Admin not found');
+    $('#admName').value = a.name;
+    $('#admEmail').value = a.email;
+    $('#admPass').value = a.password;
+  };
+  $('#adminSettingsForm').onsubmit = e=>{
+    e.preventDefault();
+    const a = users.find(u=>u.role==='admin');
+    if(!a) return alert('Admin not found');
+    const name = $('#admName').value.trim();
+    const email = $('#admEmail').value.trim().toLowerCase();
+    const pass = $('#admPass').value;
+    if(!name || !email || !pass) return alert('All fields required');
+    const conflict = users.find(u=>u.email===email && u.role!=='admin');
+    if(conflict) return alert('Email already used by another user');
+    a.name = name; a.email = email; a.password = pass;
+    persist();
+    alert('Admin settings updated');
+    renderAdmin(a);
+  };
+  $('#adminRefresh').onclick = ()=>renderAdmin(admin);
+  $('#adminSearchBtn').onclick = ()=>{ const q = $('#adminSearch').value.trim().toLowerCase(); const res = users.filter(u=>u.email.toLowerCase().includes(q) || u.name.toLowerCase().includes(q)); renderUsersList(res); };
+  $('#dumpData').onclick = ()=>{ console.log({users,products,orders,badgeRequests}); alert('See console'); };
+
+  // transactions panel helpers
+  $('#adminTransactionsPanel').style.display = 'none';
+}
+
+/* Badge request admin handlers */
+function adminApproveBadgeRequest(reqId){
+  const req = badgeRequests.find(r=>r.id===reqId);
+  if(!req) return alert('Request not found');
+  const v = getUserById(req.vendorId);
+  if(!v) return alert('Vendor missing');
+  v.badge = true;
+  req.status = 'approved'; persist();
+  alert('Badge approved and assigned to vendor');
+  renderAdmin(getUserById(session.userId));
+}
+function adminRejectBadgeRequest(reqId){
+  const req = badgeRequests.find(r=>r.id===reqId);
+  if(!req) return alert('Request not found');
+  req.status = 'rejected'; persist();
+  alert('Badge request rejected');
+  renderAdmin(getUserById(session.userId));
+}
+
+/* ---------- Vendor UI ---------- */
+function renderVendor(vendor){
+  const html = `
+  <div class="grid">
+    <div>
+      <div class="card">
+        <div class="wallet-card">
+          <div class="wallet-left">
+            <div class="wallet-name">${escapeHtml(vendor.name)}</div>
+            <div class="wallet-amount">${fmtNGN(vendor.balance)}</div>
+            <div class="small">Vendor Wallet</div>
+          </div>
+          <div><div class="tx-icon" onclick="showTransactionsModal('${vendor.email}')">📜</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Edit Profile</h3>
+        <form id="vendorProfileForm">
+          <label class="small">Profile Photo</label><input id="vpPhoto" type="file" accept="image/*" />
+          <label class="small">Description</label><textarea id="vpDesc">${escapeHtml(vendor.profile.desc||'')}</textarea>
+          <label class="small">Certificate (for verification)</label><input id="vpCert" type="file" accept="image/*,application/pdf" />
+          <div style="display:flex;gap:8px;margin-top:8px"><button class="btn">Save</button><button id="reqBadge" type="button" class="btn ghost">Request Badge</button></div>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Add Product (photos)</h3>
+        <form id="prodForm">
+          <input id="pName" placeholder="Product" required />
+          <input id="pPrice" type="number" placeholder="Price (NGN)" required />
+          <input id="pImages" type="file" accept="image/*" multiple />
+          <div style="display:flex;gap:8px;margin-top:8px"><button class="btn">Add</button><button id="clearUpload" type="button" class="btn ghost">Clear</button></div>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Your Products</h3>
+        <div id="vendorProductsTbl"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Orders</h3>
+        <div id="vendorOrdersTbl"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Live Tracking</h3>
+        <div class="small">When you accept an order, live tracking starts (browser will request permission). You can stop live updates anytime.</div>
+      </div>
+    </div>
+  </div>
+  `;
+  $('#root').innerHTML = html;
+
+  $('#vendorProfileForm').onsubmit = async e=>{
+    e.preventDefault();
+    const f = $('#vpPhoto').files[0];
+    if(f) vendor.profile.photo = await fileToBase64(f);
+    vendor.profile.desc = $('#vpDesc').value.trim();
+    const c = $('#vpCert').files[0];
+    if(c){ vendor.cert = await fileToBase64(c); vendor.status = 'cert_submitted'; }
+    persist(); alert('Profile saved'); renderVendor(vendor);
+  };
+  $('#reqBadge').onclick = ()=>{
+    if(!vendor.cert) return alert('Please upload certificate first');
+    const req = { id: rand('br'), vendorId: vendor.id, vendorEmail: vendor.email, ts: Date.now(), status: 'pending' };
+    badgeRequests.unshift(req);
+    persist();
+    alert('Badge request sent to admin');
+    renderVendor(vendor);
+  };
+
+  // add product
+  $('#prodForm').onsubmit = async e=>{
+    e.preventDefault();
+    const name = $('#pName').value.trim();
+    const price = Number($('#pPrice').value) || 0;
+    const files = $('#pImages').files;
+    if(!name || !price) return alert('Name and price required');
+    const imgs = [];
+    for(let i=0;i<files.length;i++) imgs.push(await fileToBase64(files[i]));
+    products.push({ id:rand('p'), name, price, images: imgs, vendor: vendor.email, description: '' });
+    persist(); alert('Product added'); renderVendor(vendor);
+  };
+  $('#clearUpload').onclick = ()=>{ $('#pImages').value=''; $('#pName').value=''; $('#pPrice').value=''; };
+
+  // render vendor products
+  const my = products.filter(p=>p.vendor===vendor.email);
+  $('#vendorProductsTbl').innerHTML = my.length ? my.map(p=>`<div class="list-card"><div style="display:flex;align-items:center;gap:8px"><div>${p.images[0]?`<img class="thumb" src="${p.images[0]}"/>`:'-'}</div><div><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="small">${fmtNGN(p.price)}</div></div><div class="right"><button class="btn ghost" onclick="openModalProduct('${p.id}')">View</button> <button class="btn ghost" onclick="deleteProduct('${p.id}','${vendor.email}')">Delete</button></div></div></div>`).join('') : '<div class="small">No products</div>';
+
+  // render vendor orders
+  const vOrders = orders.filter(o=>o.vendor===vendor.email);
+  $('#vendorOrdersTbl').innerHTML = vOrders.length ? vOrders.map(o=>{
+    let actions = '';
+    if(o.status==='pending_vendor') actions = `<button class="btn" onclick="vendorAccept('${o.id}')">Accept</button> <button class="btn ghost" onclick="vendorReject('${o.id}')">Reject</button>`;
+    else if(o.status==='accepted') actions = `<button class="btn" onclick="markDelivered('${o.id}')">Mark Delivered</button>`;
+    else actions = o.status;
+    return `<div class="list-card"><div style="display:flex;gap:10px;align-items:center"><div><div style="font-weight:700">${escapeHtml(o.product)}</div><div class="small">Customer: ${escapeHtml(o.customer)}</div><div class="small">${fmtNGN(o.price)}</div></div><div class="right">${actions} <button class="btn ghost" onclick="openMapForVendor('${o.id}')">Track</button></div></div></div>`;
+  }).join('') : '<div class="small">No orders</div>';
+}
+
+/* vendor helpers */
+function deleteProduct(pid, vendorEmail){
+  const idx = products.findIndex(p=>p.id===pid && p.vendor===vendorEmail);
+  if(idx>=0){ products.splice(idx,1); persist(); alert('Deleted'); const v=findUserByEmail(vendorEmail); renderVendor(v); }
+}
+
+/* Vendor accepts: credit 95% to vendor, 5% to admin */
+async function vendorAccept(orderId){
+  const order = orders.find(o=>o.id===orderId);
+  if(!order) return alert('Order not found');
+  const vendorUser = findUserByEmail(order.vendor);
+  const admin = users.find(u=>u.role==='admin');
+  try{
+    const loc = await getCurrentPosition({enableHighAccuracy:true,timeout:10000});
+    order.vendorLocation = { lat:loc.coords.latitude, lng:loc.coords.longitude, ts:Date.now() };
+    order.status = 'accepted'; persist();
+    // credit vendor 95%
+    const vendorAmt = Number((order.price * 0.95).toFixed(2));
+    const adminAmt = Number((order.price * 0.05).toFixed(2));
+    vendorUser.balance = Number((vendorUser.balance + vendorAmt).toFixed(2));
+    addTransaction(vendorUser.email,'credit', vendorAmt, `Sale (95%) - ${order.product}`);
+    // credit admin 5%
+    if(admin){ admin.balance = Number((admin.balance + adminAmt).toFixed(2)); addTransaction(admin.email,'credit', adminAmt, `Commission (5%) - ${order.product}`); }
+    persist();
+    startVendorLive(orderId);
+    alert(`Order accepted. Vendor credited ${fmtNGN(vendorAmt)}. Admin credited ${fmtNGN(adminAmt)} as commission.`);
+    renderVendor(vendorUser);
+  }catch(err){
+    alert('Could not get vendor location. Accept aborted.');
+  }
+}
+
+/* vendor rejects */
+function vendorReject(orderId){
+  const order = orders.find(o=>o.id===orderId);
+  if(!order) return alert('Order not found');
+  const customer = findUserByEmail(order.customer);
+  if(customer){ customer.balance = Number((customer.balance + order.price).toFixed(2)); addTransaction(customer.email,'credit', order.price, 'Refund (vendor rejected)'); }
+  order.status = 'rejected'; persist();
+  alert('Order rejected and customer refunded');
+  renderVendor(findUserByEmail(order.vendor));
+}
+
+/* ---------- Customer UI ---------- */
+function renderCustomer(customer){
+  const html = `
+  <div class="grid">
+    <div>
+      <div class="card">
+        <div class="wallet-card">
+          <div class="wallet-left">
+            <div class="wallet-name">${escapeHtml(customer.name)}</div>
+            <div class="wallet-amount">${fmtNGN(customer.balance)}</div>
+            <div class="small">Customer Wallet</div>
+          </div>
+          <div><div class="tx-icon" onclick="showTransactionsModal('${customer.email}')">📜</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Available Products</h3>
+        <div id="customerProducts"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Your Orders</h3>
+        <div id="customerOrdersTbl"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Live Tracking</h3>
+        <div class="small">Track vendor live once they accept. You can cancel orders before acceptance for full refund. After acceptance cancelling charges 20%.</div>
+      </div>
+    </div>
+  </div>
+  `;
+  $('#root').innerHTML = html;
+
+  // render products
+  $('#customerProducts').innerHTML = products.length ? products.map(p=>`<div class="list-card"><div style="display:flex;gap:8px;align-items:center"><div>${p.images && p.images[0] ? `<img class="thumb" src="${p.images[0]}"/>`:'-'}</div><div><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="small">${fmtNGN(p.price)} • ${escapeHtml(p.vendor)}</div></div><div class="right"><button class="btn" onclick="openModalProduct('${p.id}')">View</button> <button class="btn ghost" onclick="initiatePurchaseFromList('${p.id}')">Buy</button></div></div></div>`).join('') : '<div class="small">No products</div>';
+
+  // render orders
+  const my = orders.filter(o=>o.customer===customer.email);
+  $('#customerOrdersTbl').innerHTML = my.length ? my.map(o=>{
+    const actions = renderCustomerOrderActions(o);
+    return `<div class="list-card"><div style="display:flex;align-items:center;gap:10px"><div><div style="font-weight:700">${escapeHtml(o.product)}</div><div class="small">Vendor: ${escapeHtml(o.vendor)}</div><div class="small">${fmtNGN(o.price)} • ${o.status}</div></div><div class="right">${actions}</div></div></div>`;
+  }).join('') : '<div class="small">No orders</div>';
+}
+
+/* helper to open modal product view (in-page) */
+function openModalProduct(pid){
+  const p = products.find(x=>x.id===pid); if(!p) return alert('Product not found');
+  const vendor = findUserByEmail(p.vendor); if(!vendor) return alert('Vendor missing');
+  // vendor photo
+  $('#modalVendorPhoto').innerHTML = vendor.profile.photo ? `<img src="${vendor.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>` : `<div style="width:100%;height:100%;background:#eee"></div>`;
+  $('#modalVendorName').textContent = vendor.name;
+  $('#modalVendorBadge').innerHTML = vendor.badge ? '<span class="badge">Trusted</span>' : '';
+  $('#modalVendorDesc').textContent = vendor.profile.desc || '';
+  $('#modalVendorRating').textContent = getVendorRating(vendor);
+  // product
+  $('#modalProductName').textContent = p.name;
+  $('#modalProductImages').innerHTML = (p.images||[]).map(img=>`<img src="${img}"/>`).join('') || '<div class="small">No images</div>';
+  $('#modalProductPrice').textContent = fmtNGN(p.price);
+  $('#modalProductVendorInfo').textContent = `${vendor.name} • ${vendor.email}`;
+  // reviews
+  const reviews = vendor.reviews || [];
+  $('#modalReviews').innerHTML = reviews.length ? reviews.map(r=>`<div style="border-top:1px solid #eee;padding:6px"><strong>${escapeHtml(r.customer)}</strong> <span class="star">${'★'.repeat(r.stars)}</span><div>${escapeHtml(r.comment)}</div></div>`).join('') : '<div class="small">No reviews yet</div>';
+  // buy button handler
+  $('#modalBuyBtn').onclick = ()=>initiatePurchaseFromModal(p.id);
+  // show modal
+  $('#modalBackdrop').style.display = 'flex';
+}
+
+/* close modal */
+function closeModal(){ $('#modalBackdrop').style.display = 'none'; }
+
+/* from modal purchase */
+function initiatePurchaseFromModal(productId){ closeModal(); initiatePurchase(productId); }
+function initiatePurchaseFromList(productId){ initiatePurchase(productId); }
+
+/* Purchase flow */
+async function initiatePurchase(productId){
+  const buyer = getUserById(session.userId);
+  if(!buyer) return alert('Session lost');
+  const p = products.find(x=>x.id===productId);
+  if(!p) return alert('Product missing');
+  if(buyer.balance < p.price) return alert('Insufficient funds');
+
+  showConfirm(`Are you sure you want to purchase ${p.name} for ${fmtNGN(p.price)}?`, async ()=>{
+    try{
+      const loc = await getCurrentPosition({enableHighAccuracy:true,timeout:10000});
+      const customerLoc = {lat:loc.coords.latitude, lng:loc.coords.longitude, ts:Date.now()};
+      buyer.balance = Number((buyer.balance - p.price).toFixed(2));
+      addTransaction(buyer.email,'debit', -p.price, `Purchase: ${p.name}`);
+      const order = { id:rand('o'), product:p.name, productId:p.id, price:p.price, vendor:p.vendor, customer:buyer.email, status:'pending_vendor', customerLocation: customerLoc, createdAt:new Date().toISOString(), customerLive:false, vendorLive:false };
+      orders.push(order); persist();
+      alert('Order placed. Vendor must accept.');
+      renderCustomer(buyer);
+    }catch(err){
+      buyer.balance = Number((buyer.balance - p.price).toFixed(2));
+      addTransaction(buyer.email,'debit', -p.price, `Purchase: ${p.name}`);
+      const order = { id:rand('o'), product:p.name, productId:p.id, price:p.price, vendor:p.vendor, customer:buyer.email, status:'pending_vendor', customerLocation:null, createdAt:new Date().toISOString(), customerLive:false, vendorLive:false };
+      orders.push(order); persist();
+      renderCustomer(buyer); alert('Order placed (no location).');
+    }
+  });
+}
+
+/* Cancel before acceptance: full refund */
+function cancelOrder(orderId){
+  const o = orders.find(x=>x.id===orderId);
+  if(!o) return alert('Order missing');
+  if(o.status!=='pending_vendor') return alert('Cannot cancel at this stage here');
+  const customer = findUserByEmail(o.customer);
+  if(customer){ customer.balance = Number((customer.balance + o.price).toFixed(2)); addTransaction(customer.email,'credit', o.price, 'Refund: cancelled before acceptance'); }
+  orders = orders.filter(x=>x.id!==orderId);
+  persist();
+  alert('Order cancelled and full refund issued');
+  renderCustomer(getUserById(session.userId));
+}
+
+/* Cancel after acceptance: 20% fee, 75% of fee->vendor, 25%->admin
+   Note: vendor was originally credited 95% at acceptance and admin 5% (commission).
+   After cancellation vendor should end up with vendorShare (0.75*fee = 0.15*price),
+   so we deduct (95% - vendorShare) from vendor.
+   Admin already got 5% at acceptance and should get adminShare (0.25*fee = 0.05*price) now.
+*/
+function cancelAcceptedOrderFlow(orderId){
+  const o = orders.find(x=>x.id===orderId);
+  if(!o) return alert('Order missing');
+  if(o.status!=='accepted') return alert('Order not in accepted state');
+
+  showConfirm(`This order has been accepted and is on the way. Cancelling this order will charge 20% of ${fmtNGN(o.price)} as a cancellation fee. Continue?`, ()=>{
+    showConfirm('Are you sure you want to cancel this order?', ()=>{
+      const fee = Number((o.price * 0.20).toFixed(2)); // 20%
+      const refund = Number((o.price - fee).toFixed(2)); // 80%
+      const vendorShare = Number((fee * 0.75).toFixed(2)); // 75% of fee
+      const adminShare = Number((fee * 0.25).toFixed(2)); // 25% of fee
+      const vendor = findUserByEmail(o.vendor);
+      const admin = users.find(u=>u.role==='admin');
+      const customer = findUserByEmail(o.customer);
+
+      // refund 80%
+      if(customer){ customer.balance = Number((customer.balance + refund).toFixed(2)); addTransaction(customer.email,'credit', refund, 'Partial refund after cancellation'); }
+
+      // vendor had been credited 95% at acceptance; net vendor must end with vendorShare
+      if(vendor){
+        const creditedAtAccept = Number((o.price * 0.95).toFixed(2));
+        const deduction = Number((creditedAtAccept - vendorShare).toFixed(2));
+        vendor.balance = Number((vendor.balance - deduction).toFixed(2));
+        addTransaction(vendor.email,'debit', -deduction, 'Adjustment due to customer cancellation');
+        // then ensure vendor has vendorShare (already adjusted)
+        addTransaction(vendor.email,'credit', vendorShare, 'Vendor share of cancellation fee');
+      }
+
+      // admin gets adminShare (in addition to 5% commission already received)
+      if(admin){ admin.balance = Number((admin.balance + adminShare).toFixed(2)); addTransaction(admin.email,'credit', adminShare, 'Admin share of cancellation fee'); }
+
+      o.status = 'cancelled';
+      o.cancelledAt = new Date().toISOString();
+      o.cancellation = { fee, refund, vendorShare, adminShare };
+      persist();
+
+      alert(`Your order has been cancelled. You were charged ${fmtNGN(fee)} (20%).`);
+      renderCustomer(getUserById(session.userId));
+      if(vendor) renderVendor(vendor);
+      renderAdmin(users.find(u=>u.role==='admin'));
+    });
+  });
+}
+
+/* Deliver & Review */
+function markDelivered(orderId){
+  const order = orders.find(o=>o.id===orderId);
+  if(!order) return alert('Order not found');
+  order.status = 'delivered'; order.deliveredAt = new Date().toISOString(); persist();
+  alert('Order marked delivered — customer may leave review');
+  renderVendor(findUserByEmail(order.vendor));
+  renderCustomer(getUserById(session.userId));
+}
+function leaveReview(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+  if(o.status!=='delivered') return alert('Can only review delivered orders');
+  const customer = getUserById(session.userId);
+  const vendor = findUserByEmail(o.vendor);
+  const stars = Number(prompt('Rating (1-5 stars):','5'));
+  if(!stars || stars<1 || stars>5) return alert('Invalid rating');
+  const comment = prompt('Leave a comment (optional):','') || '';
+  vendor.reviews = vendor.reviews || [];
+  vendor.reviews.push({ orderId: o.id, customer: customer.name, stars: Math.round(stars), comment, ts: Date.now() });
+  persist();
+  alert('Thanks for your review');
+  renderCustomer(customer);
+}
+
+/* Admin overrides (approve/reject orders) */
+function adminApprove(orderId){
+  const order = orders.find(o=>o.id===orderId);
+  if(!order) return alert('Order not found');
+  if(order.status==='accepted') return alert('Already accepted');
+  const vendor = findUserByEmail(order.vendor);
+  const admin = users.find(u=>u.role==='admin');
+  // credit like vendorAccept: vendor 95% admin 5%
+  const vendorAmt = Number((order.price * 0.95).toFixed(2));
+  const adminAmt = Number((order.price * 0.05).toFixed(2));
+  if(vendor){ vendor.balance = Number((vendor.balance + vendorAmt).toFixed(2)); addTransaction(vendor.email,'credit', vendorAmt, `Sale (95%) - ${order.product}`); }
+  if(admin){ admin.balance = Number((admin.balance + adminAmt).toFixed(2)); addTransaction(admin.email,'credit', adminAmt, `Commission (5%) - ${order.product}`); }
+  order.status = 'accepted'; order.adminApprovedAt = new Date().toISOString(); persist();
+  try{ startVendorLive(orderId); }catch(e){}
+  alert('Admin approved and vendor credited (95%). Admin got 5% commission.');
+  renderAdmin(users.find(u=>u.role==='admin'));
+}
+function adminReject(orderId){
+  const order = orders.find(o=>o.id===orderId);
+  if(!order) return alert('Order not found');
+  if(order.status==='rejected') return alert('Already rejected');
+  const customer = findUserByEmail(order.customer);
+  if(customer){ customer.balance = Number((customer.balance + order.price).toFixed(2)); addTransaction(customer.email,'credit', order.price, 'Admin rejected refund'); }
+  order.status = 'rejected'; order.adminRejectedAt = new Date().toISOString(); persist();
+  alert('Admin rejected and customer refunded');
+  renderAdmin(users.find(u=>u.role==='admin'));
+}
+
+/* ---------- Live tracking ---------- */
+function startVendorLive(orderId){
+  if(liveWatchers.vendor[orderId]) return;
+  if(!navigator.geolocation) return;
+  const watchId = navigator.geolocation.watchPosition(pos=>{
+    const o = orders.find(x=>x.id===orderId); if(!o) return;
+    o.vendorLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
+    o.vendorLive = true; persist();
+    if(currentMapOrder && currentMapOrder.id===orderId) updateMapForOrder(currentMapOrder);
+  }, err=>console.warn('watch error',err), { enableHighAccuracy:true, maximumAge:5000, timeout:10000 });
+  liveWatchers.vendor[orderId] = watchId;
+}
+function stopVendorLive(orderId){
+  const id = liveWatchers.vendor[orderId];
+  if(id!=null){ navigator.geolocation.clearWatch(id); delete liveWatchers.vendor[orderId]; const o = orders.find(x=>x.id===orderId); if(o){ o.vendorLive=false; persist(); } }
+}
+function startCustomerLive(orderId){
+  if(liveWatchers.customer[orderId]) return;
+  if(!navigator.geolocation) return alert('Geolocation not supported');
+  const watchId = navigator.geolocation.watchPosition(pos=>{
+    const o = orders.find(x=>x.id===orderId); if(!o) return;
+    o.customerLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
+    o.customerLive = true; persist();
+    if(currentMapOrder && currentMapOrder.id===orderId) updateMapForOrder(currentMapOrder);
+  }, err=>console.warn('watch err',err), { enableHighAccuracy:true, maximumAge:5000, timeout:10000 });
+  liveWatchers.customer[orderId] = watchId;
+  alert('Started sharing your live location for this order');
+  renderCustomer(getUserById(session.userId));
+}
+function stopCustomerLive(orderId){
+  const id = liveWatchers.customer[orderId];
+  if(id!=null){ navigator.geolocation.clearWatch(id); delete liveWatchers.customer[orderId]; const o = orders.find(x=>x.id===orderId); if(o){ o.customerLive=false; persist(); } alert('Stopped sharing live location'); renderCustomer(getUserById(session.userId)); }
+}
+function stopAllLiveWatchersForUser(user){
+  orders.forEach(o=>{
+    if(o.vendor===user.email && liveWatchers.vendor[o.id]){ navigator.geolocation.clearWatch(liveWatchers.vendor[o.id]); delete liveWatchers.vendor[o.id]; }
+    if(o.customer===user.email && liveWatchers.customer[o.id]){ navigator.geolocation.clearWatch(liveWatchers.customer[o.id]); delete liveWatchers.customer[o.id]; }
+  });
+}
+function restoreLiveWatchers(){
+  if(!session) return;
+  const user = getUserById(session.userId);
+  if(!user) return;
+  if(user.role==='vendor'){
+    orders.filter(o=>o.vendor===user.email && o.status==='accepted').forEach(o=>startVendorLive(o.id));
+  }
+  if(user.role==='customer'){
+    orders.filter(o=>o.customer===user.email && (o.status==='pending_vendor' || o.status==='accepted')).forEach(o=>{ if(o.customerLive) startCustomerLive(o.id); });
+  }
+}
+
+/* ---------- Map UI ---------- */
+let map, vendorMarker, customerMarker, currentMapOrder = null;
+function openMapModal(){ $('#mapModal').style.display = 'flex'; }
+function closeMapModal(){ $('#mapModal').style.display = 'none'; }
+function ensureMapInitialized(){
+  if(map) return;
+  map = L.map('map').setView([0,0],2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19 }).addTo(map);
+  vendorMarker = L.marker([0,0]).addTo(map).bindPopup('Vendor');
+  customerMarker = L.marker([0,0]).addTo(map).bindPopup('Customer');
+}
+function updateMapForOrder(order){
+  if(!map) return;
+  const v = order.vendorLocation, c = order.customerLocation;
+  const points = [];
+  if(v){ vendorMarker.setLatLng([v.lat,v.lng]).bindPopup(`Vendor<br/>${new Date(v.ts).toLocaleString()}`); points.push([v.lat,v.lng]); }
+  if(c){ customerMarker.setLatLng([c.lat,c.lng]).bindPopup(`Customer<br/>${new Date(c.ts).toLocaleString()}`); points.push([c.lat,c.lng]); }
+  if(points.length) map.fitBounds(points,{ maxZoom:15, padding:[50,50] });
+}
+function openMapForVendor(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+  currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Vendor view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o);
+  $('#mapRefresh').onclick = ()=>updateMapForOrder(o);
+  $('#mapStop').onclick = ()=>{ stopVendorLive(o.id); alert('Stopped vendor live'); };
+  $('#mapClose').onclick = ()=>closeMapModal();
+}
+function openMapForCustomer(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+  currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Customer view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o);
+  $('#mapRefresh').onclick = ()=>updateMapForOrder(o);
+  $('#mapStop').onclick = ()=>{ stopCustomerLive(o.id); alert('Stopped sharing your live location'); };
+  $('#mapClose').onclick = ()=>closeMapModal();
+}
+function openMapForAdmin(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+  currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Admin view`; openMapModal(); ensureMapInitialized(); updateMapForOrder(o);
+  $('#mapRefresh').onclick = ()=>updateMapForOrder(o);
+  $('#mapStop').onclick = ()=>{ stopVendorLive(o.id); stopCustomerLive(o.id); alert('Stopped live tracking for this order (admin)'); };
+  $('#mapClose').onclick = ()=>closeMapModal();
+}
+
+/* ---------- Utilities ---------- */
+function getCurrentPosition(options){ return new Promise((res,rej)=>{ if(!navigator.geolocation) return rej(new Error('Geolocation not supported')); navigator.geolocation.getCurrentPosition(res,rej,options||{enableHighAccuracy:true,timeout:10000}); }); }
+function fileToBase64(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.onerror=rej; fr.readAsDataURL(file); }); }
+function showConfirm(text, onYes){ $('#confirmText').textContent = text; $('#confirmModal').style.display = 'flex'; const yes = $('#confirmYes'), no = $('#confirmNo'); yes.onclick = ()=>{ $('#confirmModal').style.display = 'none'; onYes && onYes(); }; no.onclick = ()=>{ $('#confirmModal').style.display = 'none'; }; }
+function getVendorRating(vendor){ const r = vendor.reviews||[]; if(!r.length) return '0.0'; const avg = r.reduce((s,x)=>s+x.stars,0)/r.length; return Number(avg.toFixed(1)); }
+
+/* ---------- Transactions modal (full history) ---------- */
+function showTransactionsModal(email){
+  const u = findUserByEmail(email);
+  if(!u) return alert('User not found');
+  // render into a simple modal card using modalBackdrop + modalCard (reuse product modal)
+  const panel = document.getElementById('modalCard');
+  // populate vendor portion for consistency
+  $('#modalVendorPhoto').innerHTML = u.profile.photo ? `<img src="${u.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>` : `<div style="width:100%;height:100%;background:#eee"></div>`;
+  $('#modalVendorName').textContent = u.name + (u.role ? ` (${u.role})` : '');
+  $('#modalVendorBadge').innerHTML = u.badge ? '<span class="badge">Trusted</span>' : '';
+  $('#modalVendorDesc').textContent = `Transaction history for ${u.name}`;
+  $('#modalVendorRating').textContent = '';
+  $('#modalProductName').textContent = 'Transactions';
+  $('#modalProductImages').innerHTML = '';
+  $('#modalProductPrice').textContent = '';
+  $('#modalProductVendorInfo').textContent = '';
+  $('#modalReviews').innerHTML = (u.transactions||[]).map(t=>`<div style="border-top:1px solid #eee;padding:6px"><div style="font-weight:700">${t.type.toUpperCase()}</div><div class="small">${new Date(t.ts).toLocaleString()}</div><div>${fmtNGN(t.amount)}</div><div class="small">${escapeHtml(t.note||'')}</div></div>`).join('') || '<div class="small">No transactions</div>';
+  $('#modalBuyBtn').style.display = 'none';
+  $('#modalBackdrop').style.display = 'flex';
+}
+
+/* Toggle transactions panel for admin quick view */
+function toggleTransactionsView(email){
+  const panel = $('#adminTransactionsPanel') || $('#vendorTransactionsPanel') || $('#customerTransactionsPanel');
+  if(!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  renderTxPanel(email, panel);
+}
+function renderTxPanel(email, panel){
+  const u = findUserByEmail(email);
+  if(!u) { panel.innerHTML = '<div class="small">No user</div>'; return; }
+  const html = (u.transactions||[]).map(t=>`<div class="tx-item"><div><div style="font-weight:700">${t.type.toUpperCase()}</div><div class="small">${new Date(t.ts).toLocaleString()}</div></div><div style="text-align:right"><div>${fmtNGN(t.amount)}</div><div class="small">${escapeHtml(t.note||'')}</div></div></div>`).join('') || '<div class="small">No transactions yet</div>';
+  panel.innerHTML = html;
+}
+
+/* ---------- Debug expose ---------- */
+window._LB = { users, products, orders, badgeRequests, persist };
+
+/* initial render */
+renderAuth();
+window.addEventListener('resize', ()=>{ document.getElementById('mobileNav').style.display = window.innerWidth <= 720 ? 'flex' : 'none'; });
+
+</script>
 </body>
 </html>
