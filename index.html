@@ -5,89 +5,66 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>AquaConnect — Marketplace + Wallet + Live Tracking (NGN)</title>
 
-<!-- Leaflet CSS CDN -->
+<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 
 <style>
   :root{
-    --bg:#f4f7fb; --card:#fff; --accent:#0b67d0; --muted:#556; --success:#16a34a; --danger:#e11d48; --text:#081128; --radius:12px;
+    --bg:#f4f7fb; --card:#fff; --accent:#0b67d0; --muted:#667085; --success:#16a34a; --danger:#e11d48; --text:#081128; --radius:10px;
     font-family:Inter,system-ui,Arial,sans-serif;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
-  header{background:var(--card);padding:12px;border-bottom:1px solid #eef3fb;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  header{background:var(--card);padding:10px;border-bottom:1px solid #eef3fb;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:10}
   header h1{margin:0;font-size:18px}
   .container{max-width:1100px;margin:12px auto;padding:12px}
   .card{background:var(--card);padding:12px;border-radius:var(--radius);box-shadow:0 6px 20px rgba(11,22,40,0.04);margin-bottom:12px}
   .grid{display:grid;grid-template-columns:1fr 360px;gap:12px}
   .small{font-size:13px;color:var(--muted)}
   input,select,textarea,button{font-family:inherit;font-size:14px}
-  input,select,textarea{width:100%;padding:10px;margin-top:8px;border-radius:10px;border:1px solid #e6eef8}
+  input,select,textarea{width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #e6eef8}
   textarea{min-height:80px;resize:vertical}
   .btn{background:var(--accent);color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
   .btn.ghost{background:transparent;color:var(--accent);border:1px solid rgba(11,103,208,0.12)}
   .btn.warn{background:var(--danger)}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid #eef3fb;text-align:left;font-size:13px}
+  img.thumb{width:64px;height:64px;object-fit:cover;border-radius:8px}
+  .badge{display:inline-block;background:var(--success);color:white;padding:4px 8px;border-radius:12px;font-size:12px}
+  .list-card{background:#fff;padding:10px;border-radius:10px;margin-bottom:8px;box-shadow:0 6px 18px rgba(11,22,40,0.03)}
+  .nav-bottom{display:none;position:fixed;inset:auto 0 0 0;height:56px;background:var(--card);border-top:1px solid #eef3fb;display:flex;gap:6px;align-items:center;justify-content:space-around;padding:6px}
+  .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);z-index:999;align-items:center;justify-content:center}
+  .modal{background:var(--card);border-radius:10px;padding:12px;width:92%;max-width:900px;max-height:90vh;overflow:auto}
+  /* map */
+  #map{height:360px;border-radius:8px}
+  /* order colors */
+  .order-card.pending{background:linear-gradient(90deg,#fff7d6,#fff);border-left:4px solid #f7c948}
+  .order-card.accepted{background:linear-gradient(90deg,#ecfdf5,#fff);border-left:4px solid #10b981}
+  .order-card.rejected{background:linear-gradient(90deg,#ffeaea,#fff);border-left:4px solid #ef4444}
+  .order-card.delivered{background:linear-gradient(90deg,#eef2ff,#fff);border-left:4px solid #7c3aed}
+  /* responsive */
+  @media (max-width:980px){ .grid{grid-template-columns:1fr;gap:10px} .nav-bottom{display:flex} }
+  @media (max-width:720px){ .container{padding:8px} .card{padding:10px} #map{height:260px} .modal{width:100%;height:100%;border-radius:0} }
   .wallet-card{display:flex;gap:12px;align-items:center;padding:12px;border-radius:12px;background:linear-gradient(180deg,#fff,#f8fbff);box-shadow:0 6px 20px rgba(11,22,40,0.04)}
-  .wallet-photo{width:64px;height:64px;border-radius:12px;background:#eef3fb;overflow:hidden;flex:0 0 64px}
+  .wallet-photo{width:64px;height:64px;border-radius:12px;background:#eef3fb;overflow:hidden}
   .wallet-main{flex:1}
   .wallet-name{font-weight:700;font-size:16px}
   .wallet-amount{font-weight:800;font-size:20px;color:var(--accent);margin-top:6px}
   .wallet-type{font-size:12px;color:var(--muted)}
   .wallet-actions{display:flex;flex-direction:column;gap:6px}
-  .tx-icon{font-size:20px;cursor:pointer}
-  .transactions{background:#fff;border-radius:10px;padding:10px;margin-top:8px;box-shadow:0 6px 18px rgba(11,22,40,0.03)}
+  .tx-list{max-height:200px;overflow:auto;margin-top:8px}
   .tx-item{display:flex;justify-content:space-between;padding:8px 6px;border-bottom:1px dashed #eef3fb}
-  .tx-item:last-child{border-bottom:none}
   .tx-credit{color:var(--success)}
   .tx-debit{color:var(--danger)}
-
-  .list-card{background:#fff;padding:10px;border-radius:10px;margin-bottom:8px;box-shadow:0 6px 18px rgba(11,22,40,0.03)}
   .product-images{display:flex;gap:8px;flex-wrap:wrap}
-  .product-images img{width:150px;height:110px;object-fit:cover;border-radius:8px}
-
-  /* modal */
-  .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);z-index:1000;align-items:center;justify-content:center}
-  .modal-card{width:92%;max-width:900px;background:var(--card);border-radius:12px;padding:12px;box-shadow:0 12px 40px rgba(11,22,40,0.08);max-height:90vh;overflow:auto}
-
-  /* map modal */
-  #mapModal{display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);z-index:999;align-items:center;justify-content:center}
-  #mapFrame{width:92%;max-width:900px;height:78%;background:white;border-radius:10px;padding:10px;display:flex;flex-direction:column}
-  #map{flex:1;border-radius:6px}
-
-  /* order status colors */
-  .order-card.pending{background:linear-gradient(90deg,#fff7d6,#fff);border-left:4px solid #f7c948}
-  .order-card.accepted{background:linear-gradient(90deg,#ecfdf5,#fff);border-left:4px solid #10b981}
-  .order-card.rejected{background:linear-gradient(90deg,#ffeaea,#fff);border-left:4px solid #ef4444}
-  .order-card.delivered{background:linear-gradient(90deg,#eef2ff,#fff);border-left:4px solid #7c3aed}
-
-  .nav-bottom{display:none;position:fixed;inset:auto 0 0 0;height:56px;background:var(--card);border-top:1px solid #eef3fb;display:flex;gap:6px;align-items:center;justify-content:space-around;padding:6px;z-index:50}
-
-  /* suggestions */
-  .suggestions{position:relative}
-  .suggestions-list{position:absolute;left:0;right:0;top:46px;background:white;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.08);z-index:50;max-height:200px;overflow:auto}
-  .suggestion-item{padding:8px;border-bottom:1px solid #f1f5f9;cursor:pointer}
-  .suggestion-item:hover{background:#f8fbff}
-
-  /* responsive */
-  @media (max-width:980px){
-    .grid{grid-template-columns:1fr;gap:10px}
-  }
-  @media (max-width:720px){
-    .container{padding:8px}
-    .card{padding:10px}
-    .nav-bottom{display:flex}
-    #mapFrame{width:100%;height:100%;border-radius:0}
-    .modal-card{height:100vh;border-radius:0}
-    .product-images img{width:45%;height:140px}
-  }
-  @media (max-width:420px){
-    .btn{padding:12px}
-    input,textarea{padding:12px}
-  }
+  .product-images img{width:140px;height:100px;object-fit:cover;border-radius:8px}
+  .search-suggestions{position:relative}
+  .suggest-list{position:absolute;left:0;right:0;top:44px;background:white;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.08);z-index:20;max-height:220px;overflow:auto}
+  .suggest-item{padding:8px;border-bottom:1px solid #f1f5f9;cursor:pointer}
+  .suggest-item:hover{background:#f8fbff}
 </style>
 </head>
 <body>
-
 <header>
   <h1>AquaConnect — Marketplace & Wallet (NGN)</h1>
   <div id="sessionBox" class="small">Not signed in</div>
@@ -95,9 +72,10 @@
 
 <div class="container">
   <div id="root"></div>
-  <div class="small" style="margin-top:8px">Data persisted to <code>localStorage</code> keys: <code>lb_users</code>, <code>lb_products</code>, <code>lb_orders</code>, <code>lb_badge_requests</code>. Currency: NGN (₦).</div>
+  <div class="small" style="margin-top:8px">Data stored in <code>localStorage</code> keys: <code>lb_users</code>, <code>lb_products</code>, <code>lb_orders</code>, <code>lb_badge_requests</code>. Currency: NGN (₦).</div>
 </div>
 
+<!-- bottom nav for mobile -->
 <nav class="nav-bottom" id="mobileNav">
   <button class="btn ghost" onclick="navTo('home')">Home</button>
   <button class="btn ghost" onclick="navTo('products')">Products</button>
@@ -105,69 +83,67 @@
   <button class="btn ghost" onclick="navTo('profile')">Profile</button>
 </nav>
 
-<!-- Product/vendor modal -->
-<div id="modalBackdrop" class="modal-backdrop">
-  <div class="modal-card" id="modalCard">
-    <div style="display:flex;align-items:center;gap:8px">
-      <div id="modalVendorPhoto" style="width:84px;height:84px;border-radius:8px;background:#eee;flex:0 0 84px;overflow:hidden"></div>
+<!-- product / vendor modal (in-page) -->
+<div id="productModal" class="modal-backdrop">
+  <div class="modal" id="productModalCard">
+    <div style="display:flex;gap:12px;align-items:center">
+      <div id="pmVendorPhoto" class="wallet-photo"></div>
       <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:8px"><div id="modalVendorName" style="font-weight:700"></div><div id="modalVendorBadge"></div></div>
-        <div class="small" id="modalVendorDesc"></div>
-        <div style="margin-top:6px">Rating: <span id="modalVendorRating">0.0</span> <span class="star">★</span></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="pmVendorName" style="font-weight:700"></div>
+          <div id="pmVendorBadge"></div>
+        </div>
+        <div class="small" id="pmVendorDesc"></div>
+        <div style="margin-top:6px">Rating: <span id="pmVendorRating">0.0</span> ★</div>
       </div>
-      <div class="right"><button class="btn ghost" onclick="closeModal()">Close</button></div>
+      <div><button class="btn ghost" onclick="closeProductModal()">Close</button></div>
     </div>
-
     <hr/>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <div>
-        <h3 id="modalProductName">Product</h3>
-        <div class="product-images" id="modalProductImages"></div>
-        <div style="margin-top:8px;font-weight:700" id="modalProductPrice"></div>
-        <div class="small" id="modalProductVendorInfo"></div>
-        <div style="margin-top:8px"><button class="btn" id="modalBuyBtn">Buy</button></div>
-      </div>
-
-      <div>
-        <h4>Reviews</h4>
-        <div id="modalReviews"></div>
-      </div>
+    <div>
+      <h3 id="pmProductName">Product</h3>
+      <div class="product-images" id="pmProductImages"></div>
+      <div style="margin-top:8px;font-weight:700" id="pmProductPrice"></div>
+      <div class="small" id="pmProductVendorInfo"></div>
+      <div style="margin-top:10px"><button class="btn" id="pmBuyBtn">Buy</button></div>
     </div>
+    <hr/>
+    <h4>Reviews</h4>
+    <div id="pmReviews"></div>
   </div>
 </div>
 
-<!-- Map modal -->
-<div id="mapModal">
-  <div id="mapFrame" class="card">
+<!-- map modal -->
+<div id="mapModal" class="modal-backdrop">
+  <div class="modal">
     <div style="display:flex;gap:8px;align-items:center">
       <strong id="mapTitle">Tracking</strong>
-      <div class="right">
+      <div style="margin-left:auto;display:flex;gap:8px">
         <button id="mapRefresh" class="btn">Refresh</button>
         <button id="mapStop" class="btn ghost">Stop Live</button>
         <button id="mapClose" class="btn ghost">Close</button>
       </div>
     </div>
-    <div id="map"></div>
+    <div id="map" style="margin-top:8px"></div>
     <div class="tiny" style="margin-top:8px">Markers update live while the user has allowed location sharing in this browser session.</div>
   </div>
 </div>
 
-<!-- Confirm modal -->
-<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);align-items:center;justify-content:center;z-index:900">
-  <div class="card" style="width:360px;text-align:center">
-    <p id="confirmText" style="margin:0 0 12px">Are you sure?</p>
-    <div style="display:flex;gap:8px;justify-content:center">
+<!-- confirm modal -->
+<div id="confirmModal" class="modal-backdrop">
+  <div class="modal">
+    <p id="confirmText"></p>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
       <button id="confirmYes" class="btn">Continue</button>
       <button id="confirmNo" class="btn ghost">Cancel</button>
     </div>
   </div>
 </div>
 
-<!-- Top-up / Withdraw modal -->
+<!-- pay modal -->
 <div id="payModal" class="modal-backdrop">
-  <div class="modal-card" style="max-width:420px">
-    <h3 id="payTitle">Top-up</h3>
-    <div class="small" id="payDesc">Use the dummy payment form below (simulated).</div>
+  <div class="modal">
+    <h3 id="payTitle">Top-up Wallet</h3>
+    <div class="small" id="payDesc">Simulated payment (dummy).</div>
     <form id="payForm">
       <label class="small">Card number</label><input id="payCard" placeholder="4242 4242 4242 4242" required />
       <label class="small">Expiry (MM/YY)</label><input id="payExp" placeholder="MM/YY" required />
@@ -175,33 +151,33 @@
       <label class="small">Amount (NGN)</label><input id="payAmount" type="number" min="1" placeholder="1000" required />
       <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
         <button class="btn" type="submit">Submit</button>
-        <button type="button" class="btn ghost" onclick="closePayModal()">Cancel</button>
+        <button class="btn ghost" type="button" onclick="closePayModal()">Cancel</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- Rating modal -->
-<div id="ratingModal" class="modal-backdrop" style="display:none">
-  <div class="modal-card" style="max-width:420px">
+<!-- rating modal -->
+<div id="ratingModal" class="modal-backdrop">
+  <div class="modal" style="max-width:480px">
     <h3>Rate Vendor</h3>
     <div class="small" id="ratingVendorInfo"></div>
     <label class="small">Stars (1-5)</label>
-    <input id="ratingStars" type="number" min="1" max="5" value="5" />
-    <label class="small" style="margin-top:6px">Comment</label>
+    <input id="ratingStars" type="number" min="1" max="5" value="5"/>
+    <label class="small">Comment</label>
     <textarea id="ratingComment"></textarea>
-    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
       <button class="btn" id="ratingSubmit">Submit</button>
       <button class="btn ghost" onclick="closeRatingModal()">Cancel</button>
     </div>
   </div>
 </div>
 
-<!-- Profile modal for Admin -->
-<div id="profileModal" class="modal-backdrop" style="display:none">
-  <div class="modal-card" style="max-width:820px">
-    <div style="display:flex;gap:10px;align-items:center">
-      <div id="profilePhoto" style="width:84px;height:84px;border-radius:8px;background:#eee;overflow:hidden"></div>
+<!-- profile modal for admin -->
+<div id="profileModal" class="modal-backdrop">
+  <div class="modal" style="max-width:900px">
+    <div style="display:flex;gap:12px;align-items:center">
+      <div id="profilePhoto" class="wallet-photo"></div>
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:8px">
           <div id="profileName" style="font-weight:700"></div>
@@ -210,7 +186,7 @@
         <div class="small" id="profileEmail"></div>
         <div class="small" id="profileRole"></div>
       </div>
-      <div class="right"><button class="btn ghost" onclick="closeProfileModal()">Close</button></div>
+      <div><button class="btn ghost" onclick="closeProfileModal()">Close</button></div>
     </div>
     <hr/>
     <div style="display:flex;gap:12px">
@@ -219,8 +195,6 @@
         <div id="profileDesc" class="small"></div>
         <div style="margin-top:8px"><strong>Balance:</strong> <span id="profileBalance"></span></div>
         <div style="margin-top:8px"><strong>Password:</strong> <span id="profilePasswordMasked"></span> <button class="btn ghost" id="togglePasswordBtn">Toggle</button></div>
-        <div style="margin-top:8px"><strong>Registered:</strong> <span id="profileRegistered"></span></div>
-
         <div style="margin-top:12px">
           <h4>Orders</h4>
           <div id="profileOrders"></div>
@@ -233,7 +207,6 @@
           </div>
         </div>
       </div>
-
       <div style="width:320px">
         <h4>Transactions</h4>
         <div id="profileTransactions" style="max-height:320px;overflow:auto"></div>
@@ -247,29 +220,31 @@
   </div>
 </div>
 
-<!-- Leaflet JS (CDN) -->
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
 <script>
-/*
-  AquaConnect Full Single-file App
-  - localStorage backend
-  - Admin seeded: admin@aquaconnet / admin123
-  - Currency: NGN
-  - Leaflet + OpenStreetMap for tracking
+/* ===========================
+   AquaConnect single-file app
+   ===========================
+   - localStorage-only backend
+   - Admin seeded: admin@aquaconnet / admin123
+   - NGN currency for money formatting
+   - Leaflet + OSM for tracking
 */
 
-/* Storage keys & admin credentials */
+/* ---------- Config & Storage Keys ---------- */
 const K_USERS = 'lb_users', K_PRODUCTS = 'lb_products', K_ORDERS = 'lb_orders', K_BADGE = 'lb_badge_requests';
 const ADMIN_EMAIL = 'admin@aquaconnet', ADMIN_PASS = 'admin123';
 
-/* Small helpers */
+/* ---------- Helpers ---------- */
 const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
 const rand = p => (p||'id') + '_' + Math.random().toString(36).slice(2,9);
 const fmtNGN = n => new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:2}).format(Number(n)||0);
 const escapeHtml = str => String(str||'').replace(/[&<>\"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[s]);
 
-/* Load / seed data */
+/* ---------- Storage seed/load ---------- */
 let users = JSON.parse(localStorage.getItem(K_USERS) || 'null') || [
   { id:'admin1', name:'Admin', email: ADMIN_EMAIL, password: ADMIN_PASS, role:'admin', balance:0, badge:false, requests:[], reviews:[], profile:{photo:null, desc:''}, cert:null, face:null, transactions:[], registeredAt: Date.now() }
 ];
@@ -277,30 +252,32 @@ let products = JSON.parse(localStorage.getItem(K_PRODUCTS) || 'null') || [];
 let orders = JSON.parse(localStorage.getItem(K_ORDERS) || 'null') || [];
 let badgeRequests = JSON.parse(localStorage.getItem(K_BADGE) || 'null') || [];
 let session = null; // {userId}
-const liveWatchers = { vendor: {}, customer: {} };
+const liveWatchers = { vendor: {}, customer: {} }; // in-memory geolocation watch ids
 
-/* persist */
-function persist(){ localStorage.setItem(K_USERS, JSON.stringify(users)); localStorage.setItem(K_PRODUCTS, JSON.stringify(products)); localStorage.setItem(K_ORDERS, JSON.stringify(orders)); localStorage.setItem(K_BADGE, JSON.stringify(badgeRequests)); }
+function persist(){
+  localStorage.setItem(K_USERS, JSON.stringify(users));
+  localStorage.setItem(K_PRODUCTS, JSON.stringify(products));
+  localStorage.setItem(K_ORDERS, JSON.stringify(orders));
+  localStorage.setItem(K_BADGE, JSON.stringify(badgeRequests));
+}
 
-/* finders */
+/* find helpers */
 function findUserByEmail(email){ return users.find(u=>u.email.toLowerCase()===String(email||'').toLowerCase()); }
 function getUserById(id){ return users.find(u=>u.id===id); }
 
-/* transaction logger */
-function addTransaction(userEmail, type, amount, note){
-  const u = findUserByEmail(userEmail);
+/* transaction helper */
+function addTransaction(email, type, amount, note){
+  const u = findUserByEmail(email);
   if(!u) return;
   u.transactions = u.transactions || [];
-  const amt = Number(amount);
-  u.transactions.unshift({ id: rand('tx'), ts: Date.now(), type, amount: amt, note });
+  u.transactions.unshift({ id: rand('tx'), ts: Date.now(), type, amount: Number(amount), note: note||'' });
   persist();
 }
 
-/* ---------- AUTH / ENTRY ---------- */
+/* ---------- UI: Auth ---------- */
 function renderAuth(){
   $('#sessionBox').textContent = 'Not signed in';
   document.getElementById('mobileNav').style.display = window.innerWidth <= 720 ? 'flex' : 'none';
-
   const html = `
   <div class="grid">
     <div>
@@ -341,7 +318,7 @@ function renderAuth(){
         <form id="adminForm">
           <input id="adminEmail" type="email" placeholder="Admin email" required />
           <input id="adminPass" type="password" placeholder="Password" required />
-          <div style="display:flex;gap:8px;margin-top:10px"><button class="btn">Admin Login</button><button id="showData" type="button" class="btn ghost">Show Raw Data</button></div>
+          <div style="display:flex;gap:8px;margin-top:10px"><button class="btn">Admin Login</button><button id="showData" type="button" class="btn ghost">Show Raw</button></div>
         </form>
       </div>
 
@@ -349,8 +326,8 @@ function renderAuth(){
         <h3>Demo Tips</h3>
         <ul class="small">
           <li>Admin: <strong>${ADMIN_EMAIL}</strong> / <strong>${ADMIN_PASS}</strong></li>
-          <li>Vendors can upload photo & certificate & face verification during registration or later.</li>
-          <li>Allow location for live tracking features.</li>
+          <li>Vendors upload photo, certificate & face for verification.</li>
+          <li>Allow location to demo live tracking.</li>
         </ul>
       </div>
     </div>
@@ -377,7 +354,7 @@ function renderAuth(){
     const user = { id: rand('u'), name, email, password: pass, role, balance:0, badge:false, requests:[], reviews:[], profile:{photo, desc}, cert, face, status: cert ? 'cert_submitted' : 'no_cert', transactions: [], registeredAt: Date.now() };
     users.push(user); persist();
     alert('Registered — please login.');
-    $('#regForm').reset(); $('#vendorExtra').style.display = 'none';
+    $('#regForm').reset(); $('#vendorExtra').style.display='none';
   };
   $('#regReset').onclick = ()=>$('#regForm').reset();
 
@@ -411,10 +388,10 @@ function renderAuth(){
   $('#showData').onclick = ()=>{ console.log({users,products,orders,badgeRequests}); alert('Check console for raw data'); };
 }
 
-/* ---------- Router ---------- */
+/* ---------- Router / App ---------- */
 function renderApp(){
   const me = getUserById(session.userId);
-  if(!me){ session=null; return renderAuth(); }
+  if(!me) { session=null; return renderAuth(); }
   $('#sessionBox').textContent = `${me.name} — ${me.role} | Sign out`;
   $('#sessionBox').onclick = ()=>{ if(confirm('Sign out?')){ stopAllLiveWatchersForUser(me); session=null; renderAuth(); } };
   document.getElementById('mobileNav').style.display = window.innerWidth <= 720 ? 'flex' : 'none';
@@ -422,19 +399,26 @@ function renderApp(){
   if(me.role==='vendor') renderVendor(me);
   if(me.role==='customer') renderCustomer(me);
 }
-function navTo(page){ if(!session) return renderAuth(); renderApp(); }
+function navTo(page){
+  if(!session) return renderAuth();
+  const me = getUserById(session.userId);
+  if(!me) return renderAuth();
+  if(me.role==='admin') renderAdmin(me);
+  if(me.role==='vendor') renderVendor(me);
+  if(me.role==='customer') renderCustomer(me);
+}
 
-/* ---------- Admin UI ---------- */
+/* ==================== Admin view ==================== */
 function renderAdmin(admin){
   const html = `
   <div class="grid">
     <div>
       <div class="card">
         <h3>Users & Search</h3>
-        <div style="display:flex;gap:8px;margin-bottom:8px;position:relative">
-          <div style="flex:1">
+        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+          <div style="flex:1;position:relative" class="search-suggestions">
             <input id="adminSearch" placeholder="Search by name or email" autocomplete="off" />
-            <div id="suggestions" class="suggestions"></div>
+            <div id="suggestList" class="suggest-list" style="display:none"></div>
           </div>
           <button id="adminSearchBtn" class="btn ghost">Search</button>
         </div>
@@ -466,7 +450,7 @@ function renderAdmin(admin){
           <div class="wallet-main">
             <div class="wallet-name">${escapeHtml(admin.name)}</div>
             <div class="wallet-amount">${fmtNGN(admin.balance)}</div>
-            <div class="wallet-type small">Admin Wallet (5% commission on accepted orders)</div>
+            <div class="wallet-type small">Admin Wallet (5% commission)</div>
           </div>
           <div class="wallet-actions"><div class="tx-icon" onclick="showTransactionsModal('${admin.email}')">📜</div></div>
         </div>
@@ -499,40 +483,40 @@ function renderAdmin(admin){
   function renderUsersList(list){
     const out = list.map(u=>{
       const photo = u.profile && u.profile.photo ? `<img class="thumb" src="${u.profile.photo}"/>` : '-';
-      return `<div class="list-card"><div style="display:flex;gap:12px;align-items:center"><div>${photo}</div><div><div style="font-weight:700">${escapeHtml(u.name)}</div><div class="small">${escapeHtml(u.email)}</div><div class="small">Role: ${u.role} • Balance: ${fmtNGN(u.balance)}</div></div><div class="right"><button class="btn ghost" onclick="openProfileModal('${u.id}')">View</button> ${u.badge?'<span class="badge">Trusted</span>':''}</div></div></div>`;
+      return `<div class="list-card"><div style="display:flex;gap:12px;align-items:center"><div>${photo}</div><div><div style="font-weight:700">${escapeHtml(u.name)}</div><div class="small">${escapeHtml(u.email)}</div><div class="small">Role: ${u.role} • Balance: ${fmtNGN(u.balance)}</div></div><div style="margin-left:auto;display:flex;gap:8px"><button class="btn ghost" onclick="openProfileModal('${u.id}')">View</button> ${u.badge?'<span class="badge">Trusted</span>':''}</div></div></div>`;
     }).join('');
     $('#adminUsersList').innerHTML = out || '<div class="small">No users</div>';
   }
   renderUsersList(users);
 
-  // suggestions logic
-  const searchInput = $('#adminSearch');
-  const suggestionsBox = $('#suggestions');
-  function showSuggestions(q){
-    if(!q){ suggestionsBox.innerHTML=''; return; }
-    const ql = q.toLowerCase();
-    const matches = users.filter(u=>u.name.toLowerCase().includes(ql) || u.email.toLowerCase().includes(ql));
-    suggestionsBox.innerHTML = matches.slice(0,10).map(m=>`<div class="suggestion-item" data-id="${m.id}" onclick="adminSelectSuggestion('${m.id}')">${escapeHtml(m.name)} — ${escapeHtml(m.email)}</div>`).join('') || '<div class="suggestion-item">No results</div>';
-  }
-  searchInput.oninput = e=> showSuggestions(e.target.value);
+  // search suggestions
+  const sInput = $('#adminSearch');
+  const suggestBox = $('#suggestList');
+  sInput.oninput = ()=>{
+    const q = sInput.value.trim().toLowerCase();
+    if(!q){ suggestBox.style.display='none'; return; }
+    const matches = users.filter(u=>u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)).slice(0,8);
+    suggestBox.innerHTML = matches.map(m=>`<div class="suggest-item" data-id="${m.id}" onclick="adminSelectSuggestion('${m.id}')">${escapeHtml(m.name)} — ${escapeHtml(m.email)}</div>`).join('') || '<div class="suggest-item">No results</div>';
+    suggestBox.style.display = 'block';
+  };
 
   window.adminSelectSuggestion = function(uid){
     const u = getUserById(uid);
     if(!u) return;
-    $('#adminSearch').value = u.name;
-    suggestionsBox.innerHTML = '';
+    sInput.value = u.name;
+    suggestBox.style.display='none';
     openProfileModal(uid);
   };
 
-  // badge queue
+  // badge queue render
   $('#badgeQueue').innerHTML = badgeRequests.length ? badgeRequests.map(r=>{
     const vendor = getUserById(r.vendorId) || {};
-    return `<div class="list-card"><div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-weight:700">${escapeHtml(vendor.name || r.vendorEmail)}</div><div class="small">${escapeHtml(r.vendorEmail)} • ${new Date(r.ts).toLocaleString()}</div></div><div><button class="btn" onclick="adminApproveBadgeRequest('${r.id}')">Approve</button><button class="btn ghost" onclick="adminRejectBadgeRequest('${r.id}')">Reject</button></div></div></div>`;
+    return `<div class="list-card"><div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-weight:700">${escapeHtml(vendor.name || r.vendorEmail)}</div><div class="small">${escapeHtml(r.vendorEmail)} • ${new Date(r.ts).toLocaleString()}</div></div><div><button class="btn" onclick="adminApproveBadgeRequest('${r.id}')">Approve</button> <button class="btn ghost" onclick="adminRejectBadgeRequest('${r.id}')">Reject</button></div></div></div>`;
   }).join('') : '<div class="small">No badge requests</div>';
 
   $('#adminProducts').innerHTML = products.length ? products.map(p=>`<div class="list-card"><div style="display:flex;align-items:center;gap:10px"><div>${p.images && p.images[0] ? `<img class="thumb" src="${p.images[0]}"/>` : '-'}</div><div><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="small">${fmtNGN(p.price)} • ${escapeHtml(p.vendor)}</div></div></div></div>`).join('') : '<div class="small">No products</div>';
 
-  $('#adminOrders').innerHTML = orders.length ? orders.map(o=>`<div class="list-card order-card ${o.status==='pending_vendor'?'pending':o.status==='accepted'?'accepted':o.status==='rejected'?'rejected':'delivered'}"><div style="display:flex;align-items:center;gap:10px"><div><div style="font-weight:700">${escapeHtml(o.product)}</div><div class="small">Customer: ${escapeHtml(o.customer)} • Vendor: ${escapeHtml(o.vendor)}</div><div class="small">Price: ${fmtNGN(o.price)} • ${o.status}</div></div><div class="right">${o.status.startsWith('pending')?`<button class="btn" onclick="adminApprove('${o.id}')">Approve</button> <button class="btn ghost" onclick="adminReject('${o.id}')">Reject</button>`: `<button class="btn ghost" onclick="openMapForAdmin('${o.id}')">Track</button>`}</div></div></div>`).join('') : '<div class="small">No orders</div>';
+  $('#adminOrders').innerHTML = orders.length ? orders.map(o=>`<div class="list-card order-card ${o.status==='pending_vendor'?'pending':o.status==='accepted'?'accepted':o.status==='rejected'?'rejected':'delivered'}"><div style="display:flex;align-items:center;gap:10px"><div><div style="font-weight:700">${escapeHtml(o.product)}</div><div class="small">Customer: ${escapeHtml(o.customer)} • Vendor: ${escapeHtml(o.vendor)}</div><div class="small">Price: ${fmtNGN(o.price)} • ${o.status}</div></div><div style="margin-left:auto;">${o.status.startsWith('pending')?`<button class="btn" onclick="adminApprove('${o.id}')">Approve</button> <button class="btn ghost" onclick="adminReject('${o.id}')">Reject</button>`: `<button class="btn ghost" onclick="openMapForAdmin('${o.id}')">Track</button>`}</div></div></div>`).join('') : '<div class="small">No orders</div>';
 
   // actions
   $('#adminAdj').onsubmit = e=>{
@@ -542,16 +526,14 @@ function renderAdmin(admin){
     const uu = findUserByEmail(email);
     if(!uu) return alert('User not found');
     uu.balance = Number((uu.balance + amt).toFixed(2));
-    addTransaction(uu.email, amt>0 ? 'credit' : 'debit', amt, 'Admin adjustment');
+    addTransaction(uu.email, amt>0?'credit':'debit', amt, 'Admin adjustment');
     persist();
     alert('Updated'); renderAdmin(admin);
   };
   $('#adminLoad').onclick = ()=>{
     const a = users.find(u=>u.role==='admin');
     if(!a) return alert('Admin not found');
-    $('#admName').value = a.name;
-    $('#admEmail').value = a.email;
-    $('#admPass').value = a.password;
+    $('#admName').value = a.name; $('#admEmail').value = a.email; $('#admPass').value = a.password;
   };
   $('#adminSettingsForm').onsubmit = e=>{
     e.preventDefault();
@@ -562,139 +544,137 @@ function renderAdmin(admin){
     const pass = $('#admPass').value;
     if(!name || !email || !pass) return alert('All fields required');
     const conflict = users.find(u=>u.email===email && u.role!=='admin');
-    if(conflict) return alert('Email already used by another user');
-    a.name = name; a.email = email; a.password = pass;
-    persist();
-    alert('Admin settings updated');
-    renderAdmin(a);
+    if(conflict) return alert('Email already used');
+    a.name = name; a.email = email; a.password = pass; persist();
+    alert('Admin settings updated'); renderAdmin(a);
   };
   $('#adminRefresh').onclick = ()=>renderAdmin(admin);
   $('#adminSearchBtn').onclick = ()=>{ const q = $('#adminSearch').value.trim().toLowerCase(); const res = users.filter(u=>u.email.toLowerCase().includes(q) || u.name.toLowerCase().includes(q)); renderUsersList(res); };
 }
 
-/* badge handlers */
+/* admin badge request handlers */
 function adminApproveBadgeRequest(reqId){
-  const req = badgeRequests.find(r=>r.id===reqId);
-  if(!req) return alert('Request not found');
-  const v = getUserById(req.vendorId);
-  if(!v) return alert('Vendor missing');
-  v.badge = true; req.status = 'approved'; persist();
-  alert('Badge approved');
-  renderAdmin(getUserById(session.userId));
+  const req = badgeRequests.find(r=>r.id===reqId); if(!req) return alert('Request not found');
+  const v = getUserById(req.vendorId); if(!v) return alert('Vendor missing');
+  v.badge = true; req.status = 'approved'; v.cert = null; v.status='verified'; persist();
+  alert('Badge approved'); renderAdmin(getUserById(session.userId));
 }
 function adminRejectBadgeRequest(reqId){
-  const req = badgeRequests.find(r=>r.id===reqId);
-  if(!req) return alert('Request not found');
-  req.status = 'rejected'; persist();
-  alert('Badge request rejected');
-  renderAdmin(getUserById(session.userId));
+  const req = badgeRequests.find(r=>r.id===reqId); if(!req) return alert('Request not found');
+  req.status = 'rejected'; persist(); alert('Badge rejected'); renderAdmin(getUserById(session.userId));
 }
 
-/* profile modal for admin */
+/* open profile modal for admin */
 function openProfileModal(userId){
-  const u = getUserById(userId);
-  if(!u) return alert('User not found');
-  $('#profilePhoto').innerHTML = u.profile.photo ? `<img src="${u.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>` : `<div style="width:100%;height:100%;background:#eee"></div>`;
-  $('#profileName').textContent = u.name;
-  $('#profileBadge').innerHTML = u.badge ? '<span class="badge">Trusted</span>' : '';
-  $('#profileEmail').textContent = u.email;
-  $('#profileRole').textContent = `Role: ${u.role}`;
-  $('#profileDesc').textContent = u.profile.desc || '';
-  $('#profileBalance').textContent = fmtNGN(u.balance);
+  const u = getUserById(userId); if(!u) return alert('User not found');
+  $('#profilePhoto').innerHTML = u.profile.photo ? `<img src="${u.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>` : '<div style="width:100%;height:100%;background:#eee"></div>';
+  $('#profileName').textContent = u.name; $('#profileBadge').innerHTML = u.badge ? '<span class="badge">Trusted</span>' : '';
+  $('#profileEmail').textContent = u.email; $('#profileRole').textContent = `Role: ${u.role}`;
+  $('#profileDesc').textContent = u.profile.desc || ''; $('#profileBalance').textContent = fmtNGN(u.balance);
   $('#profilePasswordMasked').textContent = '*'.repeat(String(u.password||'').length || 6);
   $('#profileRegistered').textContent = new Date(u.registeredAt || Date.now()).toLocaleString();
   $('#profileCertificate').innerHTML = u.cert ? `<a href="${u.cert}" target="_blank">View Certificate</a>` : '<div class="small">No certificate</div>';
   $('#profileFace').innerHTML = u.face ? `<img src="${u.face}" style="width:100%;height:auto;border-radius:6px;"/>` : '<div class="small">No face verification image</div>';
-  // orders
   const userOrders = orders.filter(o=>o.customer===u.email || o.vendor===u.email);
   $('#profileOrders').innerHTML = userOrders.length ? userOrders.map(o=>`<div class="list-card order-card ${o.status==='pending_vendor'?'pending':o.status==='accepted'?'accepted':o.status==='rejected'?'rejected':'delivered'}"><div style="font-weight:700">${escapeHtml(o.product)}</div><div class="small">${escapeHtml(o.customer)} ► ${escapeHtml(o.vendor)} • ${fmtNGN(o.price)} • ${o.status}</div></div>`).join('') : '<div class="small">No orders</div>';
-  // transactions
   $('#profileTransactions').innerHTML = (u.transactions||[]).map(t=>`<div style="border-top:1px solid #eee;padding:6px"><div style="font-weight:700">${t.type.toUpperCase()}</div><div class="small">${new Date(t.ts).toLocaleString()}</div><div class="${t.amount<0?'tx-debit':'tx-credit'}">${fmtNGN(t.amount)}</div><div class="small">${escapeHtml(t.note||'')}</div></div>`).join('') || '<div class="small">No transactions</div>';
-
   $('#profileModal').style.display = 'flex';
   $('#togglePasswordBtn').onclick = ()=>{ const el = $('#profilePasswordMasked'); if(el.textContent[0]==='*') el.textContent = u.password; else el.textContent = '*'.repeat(u.password.length); };
   $('#profileAdjBtn').onclick = ()=>{ const amt = Number($('#profileAdjAmount').value) || 0; u.balance = Number((u.balance + amt).toFixed(2)); addTransaction(u.email, amt>0?'credit':'debit', amt, 'Admin profile adjustment'); persist(); alert('Adjusted'); openProfileModal(userId); };
 }
 function closeProfileModal(){ $('#profileModal').style.display = 'none'; }
 
-/* ---------- Vendor UI ---------- */
+/* ==================== Vendor view ==================== */
 function renderVendor(vendor){
+  const me = vendor;
   const html = `
-  <div class="grid">
-    <div>
-      <div class="card">
-        <div class="wallet-card">
-          <div class="wallet-photo">${vendor.profile.photo?`<img src="${vendor.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>`:''}</div>
-          <div class="wallet-main">
-            <div class="wallet-name">${escapeHtml(vendor.name)}</div>
-            <div class="wallet-amount">${fmtNGN(vendor.balance)}</div>
-            <div class="wallet-type small">Vendor Wallet</div>
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h3>Vendor Profile</h3>
+          <div style="display:flex;gap:12px;align-items:center">
+            <div>${me.profile.photo?`<img class="thumb" src="${me.profile.photo}"/>`:'-'}</div>
+            <div>
+              <div style="font-weight:700">${escapeHtml(me.name)} ${me.badge? '<span class="badge">Trusted</span>':''}</div>
+              <div class="small">${escapeHtml(me.profile.desc||'')}</div>
+              <div class="small">Rating: ${getVendorRating(me)} ★</div>
+            </div>
           </div>
-          <div class="wallet-actions"><div class="tx-icon" onclick="showTransactionsModal('${vendor.email}')">📜</div></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Edit Profile</h3>
+          <form id="vendorProfileForm">
+            <label class="small">Profile Photo</label><input id="vpPhoto" type="file" accept="image/*" />
+            <label class="small">Description</label><textarea id="vpDesc">${escapeHtml(me.profile.desc||'')}</textarea>
+            <label class="small">Certificate (for verification)</label><input id="vpCert" type="file" accept="image/*,application/pdf" />
+            <label class="small">Face verification (selfie)</label><input id="vpFace" type="file" accept="image/*" />
+            <div style="display:flex;gap:8px;margin-top:8px"><button class="btn">Save</button><button id="reqBadge" type="button" class="btn ghost">Request Badge</button></div>
+          </form>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Add Product (photos)</h3>
+          <form id="prodForm">
+            <input id="pName" placeholder="Product" required />
+            <input id="pPrice" type="number" placeholder="Price (NGN)" required />
+            <input id="pImages" type="file" accept="image/*" multiple />
+            <div style="display:flex;gap:8px;margin-top:8px"><button class="btn">Add</button><button id="clearUpload" type="button" class="btn ghost">Clear</button></div>
+          </form>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Your Products</h3>
+          <div id="vendorProductsTbl"></div>
         </div>
       </div>
 
-      <div class="card" style="margin-top:12px">
-        <h3>Edit Profile</h3>
-        <form id="vendorProfileForm">
-          <label class="small">Profile Photo</label><input id="vpPhoto" type="file" accept="image/*" />
-          <label class="small">Description</label><textarea id="vpDesc">${escapeHtml(vendor.profile.desc||'')}</textarea>
-          <label class="small">Certificate (for verification)</label><input id="vpCert" type="file" accept="image/*,application/pdf" />
-          <label class="small">Face verification (selfie)</label><input id="vpFace" type="file" accept="image/*" />
-          <div style="display:flex;gap:8px;margin-top:8px"><button class="btn">Save</button><button id="reqBadge" type="button" class="btn ghost">Request Badge</button></div>
-        </form>
-      </div>
+      <div>
+        <div class="card">
+          <h3>Wallet</h3>
+          <div class="wallet-card">
+            <div class="wallet-photo">${me.profile.photo?`<img src="${me.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>`:''}</div>
+            <div class="wallet-main">
+              <div class="wallet-name">${escapeHtml(me.name)}</div>
+              <div class="wallet-amount">${fmtNGN(me.balance)}</div>
+              <div class="wallet-type small">Vendor Wallet</div>
+            </div>
+            <div class="wallet-actions">
+              <button class="btn ghost" onclick="openPayModal('topup')">Top-up</button>
+              <button class="btn ghost" onclick="openPayModal('withdraw')">Withdraw</button>
+              <div style="margin-top:6px"><div class="tx-icon" onclick="showTransactionsModal('${me.email}')">📜</div></div>
+            </div>
+          </div>
+        </div>
 
-      <div class="card" style="margin-top:12px">
-        <h3>Add Product (photos)</h3>
-        <form id="prodForm">
-          <input id="pName" placeholder="Product" required />
-          <input id="pPrice" type="number" placeholder="Price (NGN)" required />
-          <input id="pImages" type="file" accept="image/*" multiple />
-          <div style="display:flex;gap:8px;margin-top:8px"><button class="btn">Add</button><button id="clearUpload" type="button" class="btn ghost">Clear</button></div>
-        </form>
-      </div>
+        <div class="card" style="margin-top:12px">
+          <h3>Orders</h3>
+          <div id="vendorOrdersTbl"></div>
+        </div>
 
-      <div class="card" style="margin-top:12px">
-        <h3>Your Products</h3>
-        <div id="vendorProductsTbl"></div>
+        <div class="card" style="margin-top:12px">
+          <h3>Verification & Badge</h3>
+          <div class="small">Certificate status: ${me.status || 'none'}</div>
+          <div class="small">Face verification uploaded: ${me.face? 'Yes' : 'No'}</div>
+        </div>
       </div>
     </div>
-
-    <div>
-      <div class="card">
-        <h3>Orders</h3>
-        <div id="vendorOrdersTbl"></div>
-      </div>
-
-      <div class="card" style="margin-top:12px">
-        <h3>Verification & Badge</h3>
-        <div class="small">Certificate status: ${vendor.status || 'none'}</div>
-        <div class="small">Face verification uploaded: ${vendor.face? 'Yes' : 'No'}</div>
-      </div>
-    </div>
-  </div>
   `;
   $('#root').innerHTML = html;
 
   // profile save
   $('#vendorProfileForm').onsubmit = async e=>{
     e.preventDefault();
-    const f = $('#vpPhoto').files[0];
-    if(f) vendor.profile.photo = await fileToBase64(f);
-    vendor.profile.desc = $('#vpDesc').value.trim();
-    const c = $('#vpCert').files[0];
-    if(c){ vendor.cert = await fileToBase64(c); vendor.status = 'cert_submitted'; }
-    const ff = $('#vpFace').files[0];
-    if(ff){ vendor.face = await fileToBase64(ff); }
-    persist(); alert('Profile saved'); renderVendor(vendor);
+    const f = $('#vpPhoto').files[0]; if(f) me.profile.photo = await fileToBase64(f);
+    me.profile.desc = $('#vpDesc').value.trim();
+    const c = $('#vpCert').files[0]; if(c){ me.cert = await fileToBase64(c); me.status='cert_submitted'; }
+    const ff = $('#vpFace').files[0]; if(ff){ me.face = await fileToBase64(ff); }
+    persist(); alert('Profile saved'); renderVendor(me);
   };
   $('#reqBadge').onclick = ()=>{
-    if(!vendor.cert) return alert('Please upload certificate first');
-    const req = { id: rand('br'), vendorId: vendor.id, vendorEmail: vendor.email, ts: Date.now(), status: 'pending' };
-    badgeRequests.unshift(req); persist();
-    alert('Badge request sent to admin');
-    renderVendor(vendor);
+    if(!me.cert) return alert('Please upload certificate first');
+    const req = { id: rand('br'), vendorId: me.id, vendorEmail: me.email, ts: Date.now(), status: 'pending' };
+    badgeRequests.unshift(req); persist(); alert('Badge request sent to admin'); renderVendor(me);
   };
 
   // add product
@@ -706,23 +686,23 @@ function renderVendor(vendor){
     if(!name || !price) return alert('Name and price required');
     const imgs = [];
     for(let i=0;i<files.length;i++) imgs.push(await fileToBase64(files[i]));
-    products.push({ id:rand('p'), name, price, images: imgs, vendor: vendor.email, description: '', createdAt: Date.now() });
-    persist(); alert('Product added'); renderVendor(vendor);
+    products.push({ id:rand('p'), name, price, images: imgs, vendor: me.email, description: '', createdAt: Date.now() });
+    persist(); alert('Product added'); renderVendor(me);
   };
   $('#clearUpload').onclick = ()=>{ $('#pImages').value=''; $('#pName').value=''; $('#pPrice').value=''; };
 
   // render vendor products
-  const my = products.filter(p=>p.vendor===vendor.email);
-  $('#vendorProductsTbl').innerHTML = my.length ? my.map(p=>`<div class="list-card"><div style="display:flex;align-items:center;gap:8px"><div>${p.images[0]?`<img class="thumb" src="${p.images[0]}"/>`:'-'}</div><div><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="small">${fmtNGN(p.price)}</div></div><div class="right"><button class="btn ghost" onclick="openModalProduct('${p.id}')">View</button> <button class="btn ghost" onclick="deleteProduct('${p.id}','${vendor.email}')">Delete</button></div></div></div>`).join('') : '<div class="small">No products</div>';
+  const my = products.filter(p=>p.vendor===me.email);
+  $('#vendorProductsTbl').innerHTML = my.length ? my.map(p=>`<div class="list-card"><div style="display:flex;align-items:center;gap:8px"><div>${p.images[0]?`<img class="thumb" src="${p.images[0]}"/>`:'-'}</div><div><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="small">${fmtNGN(p.price)}</div></div><div style="margin-left:auto;display:flex;gap:8px"><button class="btn ghost" onclick="openProductModal('${p.id}')">View</button> <button class="btn ghost" onclick="deleteProduct('${p.id}','${me.email}')">Delete</button></div></div></div>`).join('') : '<div class="small">No products</div>';
 
   // render vendor orders
-  const vOrders = orders.filter(o=>o.vendor===vendor.email);
+  const vOrders = orders.filter(o=>o.vendor===me.email);
   $('#vendorOrdersTbl').innerHTML = vOrders.length ? vOrders.map(o=>{
     let actions = '';
     if(o.status==='pending_vendor') actions = `<button class="btn" onclick="vendorAccept('${o.id}')">Accept</button> <button class="btn ghost" onclick="vendorReject('${o.id}')">Reject</button>`;
     else if(o.status==='accepted') actions = `<button class="btn" onclick="markDelivered('${o.id}')">Mark Delivered</button>`;
-    else actions = o.status;
-    return `<div class="list-card order-card ${o.status==='pending_vendor'?'pending':o.status==='accepted'?'accepted':o.status==='rejected'?'rejected':'delivered'}"><div style="display:flex;gap:10px;align-items:center"><div><div style="font-weight:700">${escapeHtml(o.product)}</div><div class="small">Customer: ${escapeHtml(o.customer)}</div><div class="small">${fmtNGN(o.price)}</div></div><div class="right">${actions} <button class="btn ghost" onclick="openMapForVendor('${o.id}')">Track</button></div></div></div>`;
+    else actions = `<div class="small">${o.status}</div>`;
+    return `<div class="list-card order-card ${o.status==='pending_vendor'?'pending':o.status==='accepted'?'accepted':o.status==='rejected'?'rejected':'delivered'}"><div style="display:flex;gap:10px;align-items:center"><div style="flex:1"><div style="font-weight:700">${escapeHtml(o.product)}</div><div class="small">Customer: ${escapeHtml(o.customer)}</div><div class="small">${fmtNGN(o.price)}</div></div><div style="display:flex;flex-direction:column;gap:6px">${actions} <button class="btn ghost" onclick="openMapForVendor('${o.id}')">Track</button></div></div></div>`;
   }).join('') : '<div class="small">No orders</div>';
 }
 
@@ -732,10 +712,9 @@ function deleteProduct(pid, vendorEmail){
   if(idx>=0){ products.splice(idx,1); persist(); alert('Deleted'); const v=findUserByEmail(vendorEmail); renderVendor(v); }
 }
 
-/* Accept order: credit vendor 95%, admin 5% */
+/* vendor accept -> credit vendor 95%, admin 5% */
 async function vendorAccept(orderId){
-  const order = orders.find(o=>o.id===orderId);
-  if(!order) return alert('Order not found');
+  const order = orders.find(o=>o.id===orderId); if(!order) return alert('Order not found');
   const vendorUser = findUserByEmail(order.vendor);
   const admin = users.find(u=>u.role==='admin');
   try{
@@ -750,76 +729,78 @@ async function vendorAccept(orderId){
     persist();
     startVendorLive(orderId);
     alert(`Order accepted. Vendor credited ${fmtNGN(vendorAmt)}. Admin credited ${fmtNGN(adminAmt)}.`);
-    // notify customer if current session
     if(session && getUserById(session.userId).email === order.customer){ alert('Your order was accepted. Tracking available.'); renderCustomer(getUserById(session.userId)); }
     renderVendor(vendorUser);
   }catch(err){
-    alert('Could not acquire vendor location. Accept aborted.');
+    alert('Could not get vendor location. Accept aborted.');
   }
 }
 
-/* Vendor reject: refund and remove order */
+/* vendor reject -> refund and remove order */
 function vendorReject(orderId){
-  const order = orders.find(o=>o.id===orderId);
-  if(!order) return alert('Order not found');
+  const order = orders.find(o=>o.id===orderId); if(!order) return alert('Order not found');
   const customer = findUserByEmail(order.customer);
-  if(customer){
-    customer.balance = Number((customer.balance + order.price).toFixed(2));
-    addTransaction(customer.email,'credit', order.price, 'Refund (vendor rejected)');
-  }
+  if(customer){ customer.balance = Number((customer.balance + order.price).toFixed(2)); addTransaction(customer.email,'credit', order.price, 'Refund (vendor rejected)'); }
   orders = orders.filter(o=>o.id!==orderId);
   persist();
   alert('Order rejected and customer refunded; order removed.');
   renderVendor(findUserByEmail(order.vendor));
-  // notify customer if same session
-  if(session && getUserById(session.userId).email===order.customer) alert('Your order was rejected by vendor and refunded.');
+  if(session && getUserById(session.userId).email===order.customer) alert('Your order was rejected and refunded.');
 }
 
-/* ---------- Customer UI ---------- */
+/* mark delivered */
+function markDelivered(orderId){
+  const order = orders.find(o=>o.id===orderId); if(!order) return alert('Order not found');
+  order.status = 'delivered'; order.deliveredAt = new Date().toISOString(); persist();
+  alert('Order marked delivered — customer may leave review');
+  renderVendor(findUserByEmail(order.vendor));
+}
+
+/* ==================== Customer view ==================== */
 function renderCustomer(customer){
-  // Compose customer dashboard with tabs: Available Products (main) | Your Orders
+  const me = customer;
   const html = `
-  <div>
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button class="btn" id="tabProductsBtn">Available Products</button>
-      <button class="btn ghost" id="tabOrdersBtn">Your Orders</button>
-      <div style="margin-left:auto">
-        <div class="wallet-card" style="align-items:center">
-          <div class="wallet-photo">${customer.profile.photo?`<img src="${customer.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>`:'<div style="width:100%;height:100%;background:#eee"></div>'}</div>
-          <div class="wallet-main">
-            <div class="wallet-name">${escapeHtml(customer.name)}</div>
-            <div class="wallet-amount">${fmtNGN(customer.balance)}</div>
-            <div class="wallet-type small">Customer Wallet</div>
-          </div>
-          <div class="wallet-actions">
-            <button class="btn ghost" onclick="openPayModal('topup')">Top-up</button>
-            <button class="btn ghost" onclick="openPayModal('withdraw')">Withdraw</button>
-            <div style="margin-top:6px"><div class="tx-icon" onclick="showTransactionsModal('${customer.email}')">📜</div></div>
+    <div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button class="btn" id="tabProductsBtn">Available Products</button>
+        <button class="btn ghost" id="tabOrdersBtn">Your Orders</button>
+        <div style="margin-left:auto">
+          <div class="wallet-card" style="align-items:center">
+            <div class="wallet-photo">${me.profile.photo?`<img src="${me.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>`:'<div style="width:100%;height:100%;background:#eee"></div>'}</div>
+            <div class="wallet-main">
+              <div class="wallet-name">${escapeHtml(me.name)}</div>
+              <div class="wallet-amount">${fmtNGN(me.balance)}</div>
+              <div class="wallet-type small">Customer Wallet</div>
+            </div>
+            <div class="wallet-actions">
+              <button class="btn ghost" onclick="openPayModal('topup')">Top-up</button>
+              <button class="btn ghost" onclick="openPayModal('withdraw')">Withdraw</button>
+              <div style="margin-top:6px"><div class="tx-icon" onclick="showTransactionsModal('${me.email}')">📜</div></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div id="productsPanel" class="card">
-      <h3>Available Products</h3>
-      <div id="customerProducts"></div>
-    </div>
+      <div id="productsPanel" class="card">
+        <h3>Available Products</h3>
+        <div id="customerProducts"></div>
+      </div>
 
-    <div id="ordersPanel" class="card" style="display:none">
-      <h3>Your Orders</h3>
-      <div id="customerOrdersTbl"></div>
+      <div id="ordersPanel" class="card" style="display:none">
+        <h3>Your Orders</h3>
+        <div id="customerOrdersTbl"></div>
+      </div>
     </div>
-  </div>
   `;
   $('#root').innerHTML = html;
 
   $('#tabProductsBtn').onclick = ()=>{ $('#productsPanel').style.display = 'block'; $('#ordersPanel').style.display = 'none'; };
-  $('#tabOrdersBtn').onclick = ()=>{ $('#productsPanel').style.display = 'none'; $('#ordersPanel').style.display = 'block'; renderCustomerOrders(customer); };
+  $('#tabOrdersBtn').onclick = ()=>{ $('#productsPanel').style.display = 'none'; $('#ordersPanel').style.display = 'block'; renderCustomerOrders(me); };
 
   // products listing
-  $('#customerProducts').innerHTML = products.length ? products.map(p=>`<div class="list-card"><div style="display:flex;gap:8px;align-items:center"><div>${p.images && p.images[0] ? `<img class="thumb" src="${p.images[0]}"/>` : '-'}</div><div style="flex:1"><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="small">${fmtNGN(p.price)} • ${escapeHtml(p.vendor)}</div></div><div style="display:flex;flex-direction:column;gap:8px"><button class="btn" onclick="openModalProduct('${p.id}')">View</button><button class="btn ghost" onclick="initiatePurchaseFromList('${p.id}')">Buy</button></div></div></div>`).join('') : '<div class="small">No products</div>';
+  $('#customerProducts').innerHTML = products.length ? products.map(p=>`<div class="list-card"><div style="display:flex;gap:8px;align-items:center"><div>${p.images && p.images[0] ? `<img class="thumb" src="${p.images[0]}"/>` : '-'}</div><div style="flex:1"><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="small">${fmtNGN(p.price)} • ${escapeHtml(p.vendor)}</div></div><div style="display:flex;flex-direction:column;gap:8px"><button class="btn" onclick="openProductModal('${p.id}')">View</button><button class="btn ghost" onclick="initiatePurchaseFromList('${p.id}')">Buy</button></div></div></div>`).join('') : '<div class="small">No products</div>';
 
-  renderCustomerOrders(customer);
+  renderCustomerOrders(me);
 }
 
 function renderCustomerOrders(customer){
@@ -834,120 +815,75 @@ function renderCustomerOrderActions(o){
   if(o.status==='pending_vendor') return `<button class="btn" onclick="cancelOrder('${o.id}')">Cancel (full refund)</button>`;
   if(o.status==='accepted') return `<button class="btn" onclick="cancelAcceptedOrderFlow('${o.id}')">Cancel (20% fee)</button> <button class="btn ghost" onclick="startSharingCustomer('${o.id}')">Share My Location</button>`;
   if(o.status==='delivered') return `<button class="btn" onclick="openRatingModal('${o.id}')">Leave Review</button>`;
-  if(o.status==='rejected') return `Rejected`;
+  if(o.status==='rejected') return `<button class="btn" onclick="reorder('${o.id}')">Reorder</button>`;
   return '-';
 }
 
-/* open rating modal (customer chooses when to review) */
-function openRatingModal(orderId){
-  const o = orders.find(x=>x.id===orderId);
-  if(!o) return alert('Order not found');
-  const vendor = findUserByEmail(o.vendor);
-  if(!vendor) return alert('Vendor not found');
-  // ensure only once
-  if(o.reviewed) return alert('You already reviewed this order');
-  $('#ratingVendorInfo').textContent = `${vendor.name} — ${o.product}`;
-  $('#ratingStars').value = 5;
-  $('#ratingComment').value = '';
-  $('#ratingModal').style.display = 'flex';
-  $('#ratingSubmit').onclick = ()=>{
-    const stars = Number($('#ratingStars').value) || 5;
-    const comment = $('#ratingComment').value || '';
-    vendor.reviews = vendor.reviews || [];
-    vendor.reviews.push({ orderId: o.id, customer: getUserById(session.userId).name, stars: Math.round(stars), comment, ts: Date.now() });
-    o.reviewed = true;
-    persist();
-    $('#ratingModal').style.display = 'none';
-    alert('Thanks for your review');
-    renderCustomer(getUserById(session.userId));
-  };
+function reorder(oldOrderId){
+  const old = orders.find(o=>o.id===oldOrderId); if(!old) return alert('Not found'); const p = products.find(pp=>pp.id===old.productId); if(!p) return alert('Product removed'); initiatePurchase(p.id);
 }
-function closeRatingModal(){ $('#ratingModal').style.display = 'none'; }
 
-/* modal product view */
-function openModalProduct(pid){
+/* product modal (in-page) */
+function openProductModal(pid){
   const p = products.find(x=>x.id===pid); if(!p) return alert('Product not found');
   const vendor = findUserByEmail(p.vendor); if(!vendor) return alert('Vendor missing');
-  $('#modalVendorPhoto').innerHTML = vendor.profile.photo ? `<img src="${vendor.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>` : `<div style="width:100%;height:100%;background:#eee"></div>`;
-  $('#modalVendorName').textContent = vendor.name;
-  $('#modalVendorBadge').innerHTML = vendor.badge ? '<span class="badge">Trusted</span>' : '';
-  $('#modalVendorDesc').textContent = vendor.profile.desc || '';
-  $('#modalVendorRating').textContent = getVendorRating(vendor);
-  $('#modalProductName').textContent = p.name;
-  $('#modalProductImages').innerHTML = (p.images||[]).map(img=>`<img src="${img}"/>`).join('') || '<div class="small">No images</div>';
-  $('#modalProductPrice').textContent = fmtNGN(p.price);
-  $('#modalProductVendorInfo').textContent = `${vendor.name} • ${vendor.email}`;
+  $('#productModal').style.display = 'flex';
+  $('#pmVendorPhoto').innerHTML = vendor.profile.photo ? `<img src="${vendor.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>` : `<div style="width:100%;height:100%;background:#eee"></div>`;
+  $('#pmVendorName').textContent = vendor.name; $('#pmVendorBadge').innerHTML = vendor.badge ? '<span class="badge">Trusted</span>' : '';
+  $('#pmVendorDesc').textContent = vendor.profile.desc || ''; $('#pmVendorRating').textContent = getVendorRating(vendor);
+  $('#pmProductName').textContent = p.name; $('#pmProductImages').innerHTML = (p.images||[]).map(img=>`<img src="${img}" />`).join('') || '<div class="small">No images</div>';
+  $('#pmProductPrice').textContent = fmtNGN(p.price); $('#pmProductVendorInfo').textContent = `${vendor.name} • ${vendor.email}`;
   const reviews = vendor.reviews || [];
-  $('#modalReviews').innerHTML = reviews.length ? reviews.map(r=>`<div style="border-top:1px solid #eee;padding:6px"><strong>${escapeHtml(r.customer)}</strong> <span class="star">${'★'.repeat(r.stars)}</span><div>${escapeHtml(r.comment)}</div></div>`).join('') : '<div class="small">No reviews yet</div>';
-  $('#modalBuyBtn').onclick = ()=>initiatePurchaseFromModal(p.id);
-  $('#modalBackdrop').style.display = 'flex';
+  $('#pmReviews').innerHTML = reviews.length ? reviews.map(r=>`<div style="border-top:1px solid #eee;padding:6px"><strong>${escapeHtml(r.customer)}</strong> <span class="star">${'★'.repeat(r.stars)}</span><div>${escapeHtml(r.comment)}</div></div>`).join('') : '<div class="small">No reviews yet</div>';
+  $('#pmBuyBtn').onclick = ()=>{ closeProductModal(); initiatePurchase(pid); };
 }
-function closeModal(){ $('#modalBackdrop').style.display = 'none'; }
+function closeProductModal(){ $('#productModal').style.display = 'none'; }
 
 /* purchase flows */
-function initiatePurchaseFromModal(productId){ closeModal(); initiatePurchase(productId); }
 function initiatePurchaseFromList(productId){ initiatePurchase(productId); }
-
 async function initiatePurchase(productId){
-  const buyer = getUserById(session.userId);
-  if(!buyer) return alert('Session lost');
-  const p = products.find(x=>x.id===productId);
-  if(!p) return alert('Product missing');
+  const buyer = getUserById(session.userId); if(!buyer) return alert('Session lost');
+  const p = products.find(x=>x.id===productId); if(!p) return alert('Product missing');
   if(buyer.balance < p.price) return alert('Insufficient funds');
-
   showConfirm(`Are you sure you want to purchase ${p.name} for ${fmtNGN(p.price)}?`, async ()=>{
     try{
-      const loc = await getCurrentPosition({enableHighAccuracy:true,timeout:10000});
-      const customerLoc = {lat:loc.coords.latitude, lng:loc.coords.longitude, ts:Date.now()};
+      const pos = await getCurrentPosition({enableHighAccuracy:true,timeout:10000});
+      const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts:Date.now() };
       buyer.balance = Number((buyer.balance - p.price).toFixed(2));
       addTransaction(buyer.email,'debit', -p.price, `Purchase: ${p.name}`);
-      const order = { id:rand('o'), product:p.name, productId:p.id, price:p.price, vendor:p.vendor, customer:buyer.email, status:'pending_vendor', customerLocation: customerLoc, createdAt:new Date().toISOString(), customerLive:false, vendorLive:false, reviewed:false };
-      orders.push(order); persist();
-      alert('Order placed. Vendor must accept.');
-      renderCustomer(buyer);
+      const order = { id:rand('o'), product:p.name, productId:p.id, price:p.price, vendor:p.vendor, customer:buyer.email, status:'pending_vendor', customerLocation: loc, createdAt:new Date().toISOString(), customerLive:false, vendorLive:false, reviewed:false };
+      orders.push(order); persist(); alert('Order placed. Vendor must accept.'); renderCustomer(buyer);
     }catch(err){
-      buyer.balance = Number((buyer.balance - p.price).toFixed(2));
-      addTransaction(buyer.email,'debit', -p.price, `Purchase: ${p.name}`);
+      buyer.balance = Number((buyer.balance - p.price).toFixed(2)); addTransaction(buyer.email,'debit', -p.price, `Purchase: ${p.name}`);
       const order = { id:rand('o'), product:p.name, productId:p.id, price:p.price, vendor:p.vendor, customer:buyer.email, status:'pending_vendor', customerLocation:null, createdAt:new Date().toISOString(), customerLive:false, vendorLive:false, reviewed:false };
-      orders.push(order); persist();
-      renderCustomer(buyer); alert('Order placed (no location).');
+      orders.push(order); persist(); renderCustomer(buyer); alert('Order placed (no location).');
     }
   });
 }
 
-/* cancel before acceptance: full refund */
+/* cancel before acceptance */
 function cancelOrder(orderId){
-  const o = orders.find(x=>x.id===orderId);
-  if(!o) return alert('Order missing');
-  if(o.status!=='pending_vendor') return alert('Cannot cancel at this stage here');
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order missing'); if(o.status!=='pending_vendor') return alert('Cannot cancel at this stage here');
   const customer = findUserByEmail(o.customer);
   if(customer){ customer.balance = Number((customer.balance + o.price).toFixed(2)); addTransaction(customer.email,'credit', o.price, 'Refund: cancelled before acceptance'); }
-  orders = orders.filter(x=>x.id!==orderId);
-  persist();
+  orders = orders.filter(x=>x.id!==orderId); persist();
   alert('Order cancelled and full refund issued');
   renderCustomer(getUserById(session.userId));
 }
 
-/* cancel after acceptance: 20% fee */
+/* cancel after acceptance - 20% fee distribution */
 function cancelAcceptedOrderFlow(orderId){
-  const o = orders.find(x=>x.id===orderId);
-  if(!o) return alert('Order missing');
-  if(o.status!=='accepted') return alert('Order not in accepted state');
-
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order missing'); if(o.status!=='accepted') return alert('Order not in accepted state');
   showConfirm(`This order has been accepted and is on the way. Cancelling this order will charge 20% of ${fmtNGN(o.price)} as a cancellation fee. Continue?`, ()=>{
     showConfirm('Are you sure you want to cancel this order?', ()=>{
-      const fee = Number((o.price * 0.20).toFixed(2)); // 20%
-      const refund = Number((o.price - fee).toFixed(2)); // 80%
-      const vendorShare = Number((fee * 0.75).toFixed(2)); // 75% of fee
-      const adminShare = Number((fee * 0.25).toFixed(2)); // 25% of fee
+      const fee = Number((o.price * 0.20).toFixed(2));
+      const refund = Number((o.price - fee).toFixed(2));
+      const vendorShare = Number((fee * 0.75).toFixed(2));
+      const adminShare = Number((fee * 0.25).toFixed(2));
       const vendor = findUserByEmail(o.vendor);
       const admin = users.find(u=>u.role==='admin');
       const customer = findUserByEmail(o.customer);
-
-      // refund 80%
       if(customer){ customer.balance = Number((customer.balance + refund).toFixed(2)); addTransaction(customer.email,'credit', refund, 'Partial refund after cancellation'); }
-
-      // vendor had been credited 95% at acceptance; net vendor must end with vendorShare
       if(vendor){
         const creditedAtAccept = Number((o.price * 0.95).toFixed(2));
         const deduction = Number((creditedAtAccept - vendorShare).toFixed(2));
@@ -955,15 +891,8 @@ function cancelAcceptedOrderFlow(orderId){
         addTransaction(vendor.email,'debit', -deduction, 'Adjustment due to customer cancellation');
         addTransaction(vendor.email,'credit', vendorShare, 'Vendor share of cancellation fee');
       }
-
-      // admin gets adminShare
       if(admin){ admin.balance = Number((admin.balance + adminShare).toFixed(2)); addTransaction(admin.email,'credit', adminShare, 'Admin share of cancellation fee'); }
-
-      o.status = 'cancelled';
-      o.cancelledAt = new Date().toISOString();
-      o.cancellation = { fee, refund, vendorShare, adminShare };
-      persist();
-
+      o.status = 'cancelled'; o.cancelledAt = new Date().toISOString(); o.cancellation = { fee, refund, vendorShare, adminShare }; persist();
       alert(`Your order has been cancelled. You were charged ${fmtNGN(fee)} (20%).`);
       renderCustomer(getUserById(session.userId));
       if(vendor) renderVendor(vendor);
@@ -972,34 +901,31 @@ function cancelAcceptedOrderFlow(orderId){
   });
 }
 
-/* markDelivered: no auto popup; customer will click to review manually when ready */
-function markDelivered(orderId){
-  const order = orders.find(o=>o.id===orderId);
-  if(!order) return alert('Order not found');
-  order.status = 'delivered'; order.deliveredAt = new Date().toISOString(); persist();
-  alert('Order marked delivered — customer may leave review when ready');
-  renderVendor(findUserByEmail(order.vendor));
+/* leave review (customer) */
+function openRatingModal(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
+  if(o.reviewed) return alert('You already reviewed this order');
+  const vendor = findUserByEmail(o.vendor); if(!vendor) return alert('Vendor missing');
+  $('#ratingVendorInfo').textContent = `${vendor.name} — ${o.product}`; $('#ratingStars').value = 5; $('#ratingComment').value = '';
+  $('#ratingModal').style.display = 'flex';
+  $('#ratingSubmit').onclick = ()=>{ const stars = Number($('#ratingStars').value) || 5; const comment = $('#ratingComment').value || ''; vendor.reviews = vendor.reviews || []; vendor.reviews.push({ orderId: o.id, customer: getUserById(session.userId).name, stars: Math.round(stars), comment, ts: Date.now() }); o.reviewed = true; persist(); $('#ratingModal').style.display = 'none'; alert('Thanks for your review'); renderCustomer(getUserById(session.userId)); };
 }
+function closeRatingModal(){ $('#ratingModal').style.display = 'none'; }
 
-/* admin overrides */
+/* admin approve/reject order override */
 function adminApprove(orderId){
-  const order = orders.find(o=>o.id===orderId);
-  if(!order) return alert('Order not found');
+  const order = orders.find(o=>o.id===orderId); if(!order) return alert('Not found');
   if(order.status==='accepted') return alert('Already accepted');
   const vendor = findUserByEmail(order.vendor);
-  const admin = users.find(u=>u.role==='admin');
-  const vendorAmt = Number((order.price * 0.95).toFixed(2));
-  const adminAmt = Number((order.price * 0.05).toFixed(2));
-  if(vendor){ vendor.balance = Number((vendor.balance + vendorAmt).toFixed(2)); addTransaction(vendor.email,'credit', vendorAmt, `Sale (95%) - ${order.product}`); }
-  if(admin){ admin.balance = Number((admin.balance + adminAmt).toFixed(2)); addTransaction(admin.email,'credit', adminAmt, `Commission (5%) - ${order.product}`); }
+  if(vendor){ const vendorAmt = Number((order.price * 0.95).toFixed(2)); vendor.balance = Number((vendor.balance + vendorAmt).toFixed(2)); addTransaction(vendor.email,'credit', vendorAmt, `Sale (95%) - ${order.product}`); }
+  const admin = users.find(u=>u.role==='admin'); if(admin){ const adminAmt = Number((order.price * 0.05).toFixed(2)); admin.balance = Number((admin.balance + adminAmt).toFixed(2)); addTransaction(admin.email,'credit', adminAmt, `Commission (5%) - ${order.product}`); }
   order.status = 'accepted'; order.adminApprovedAt = new Date().toISOString(); persist();
   try{ startVendorLive(orderId); }catch(e){}
   alert('Admin approved and vendor credited (95%). Admin got 5% commission.');
   renderAdmin(users.find(u=>u.role==='admin'));
 }
 function adminReject(orderId){
-  const order = orders.find(o=>o.id===orderId);
-  if(!order) return alert('Order not found');
+  const order = orders.find(o=>o.id===orderId); if(!order) return alert('Not found');
   if(order.status==='rejected') return alert('Already rejected');
   const customer = findUserByEmail(order.customer);
   if(customer){ customer.balance = Number((customer.balance + order.price).toFixed(2)); addTransaction(customer.email,'credit', order.price, 'Admin rejected refund'); }
@@ -1008,7 +934,7 @@ function adminReject(orderId){
   renderAdmin(users.find(u=>u.role==='admin'));
 }
 
-/* ---------- Live Tracking (Leaflet) ---------- */
+/* ==================== Live Tracking helpers ==================== */
 function startVendorLive(orderId){
   if(liveWatchers.vendor[orderId]) return;
   if(!navigator.geolocation) return;
@@ -1059,14 +985,14 @@ function restoreLiveWatchers(){
   }
 }
 
-/* Map UI using Leaflet */
-let map, vendorMarker, customerMarker, currentMapOrder = null;
+/* ==================== Map UI ==================== */
+let map, vendorMarker, customerMarker, currentMapOrder = null, mapAutoTimer = null;
 function ensureMapInitialized(){
   if(map) return;
-  map = L.map('map').setView([9.0820,8.6753],6); // Nigeria approx center
+  map = L.map('map').setView([9.0820,8.6753],6);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19 }).addTo(map);
-  vendorMarker = L.marker([0,0], { icon: L.divIcon({ className: 'vendor-icon', html: '<div style="font-size:28px">🚚</div>', iconSize: [28,28], iconAnchor: [14,14] }) }).addTo(map).bindPopup('Vendor');
-  customerMarker = L.marker([0,0], { icon: L.divIcon({ className: 'customer-icon', html: '<div style="font-size:26px">👤</div>', iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(map).bindPopup('Customer');
+  vendorMarker = L.marker([0,0], { icon: L.divIcon({ className:'vendor-icon', html:'<div style="font-size:26px">🚚</div>', iconSize:[26,26], iconAnchor:[13,13] }) }).addTo(map).bindPopup('Vendor');
+  customerMarker = L.marker([0,0], { icon: L.divIcon({ className:'customer-icon', html:'<div style="font-size:24px">👤</div>', iconSize:[24,24], iconAnchor:[12,12] }) }).addTo(map).bindPopup('Customer');
 }
 function updateMapForOrder(order){
   if(!map) return;
@@ -1074,97 +1000,118 @@ function updateMapForOrder(order){
   const pts = [];
   if(v){ vendorMarker.setLatLng([v.lat,v.lng]).bindPopup(`Vendor<br/>${new Date(v.ts).toLocaleString()}`); pts.push([v.lat,v.lng]); }
   if(c){ customerMarker.setLatLng([c.lat,c.lng]).bindPopup(`Customer<br/>${new Date(c.ts).toLocaleString()}`); pts.push([c.lat,c.lng]); }
-  if(pts.length) map.fitBounds(pts, { maxZoom:15, padding:[80,80] });
+  if(pts.length) map.fitBounds(pts,{ maxZoom:15, padding:[50,50] });
 }
 function openMapForVendor(orderId){
   const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
   currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Vendor view`; $('#mapModal').style.display = 'flex'; ensureMapInitialized(); updateMapForOrder(o);
   $('#mapRefresh').onclick = ()=>updateMapForOrder(o);
   $('#mapStop').onclick = ()=>{ stopVendorLive(o.id); alert('Stopped vendor live'); };
-  $('#mapClose').onclick = ()=>{ $('#mapModal').style.display = 'none'; };
+  $('#mapClose').onclick = ()=>{ $('#mapModal').style.display = 'none'; if(mapAutoTimer){ clearInterval(mapAutoTimer); mapAutoTimer = null; } };
+  // start auto-refresh every 5s
+  if(mapAutoTimer) clearInterval(mapAutoTimer);
+  mapAutoTimer = setInterval(()=>updateMapForOrder(o), 5000);
 }
 function openMapForCustomer(orderId){
   const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
   currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Customer view`; $('#mapModal').style.display = 'flex'; ensureMapInitialized(); updateMapForOrder(o);
   $('#mapRefresh').onclick = ()=>updateMapForOrder(o);
   $('#mapStop').onclick = ()=>{ stopCustomerLive(o.id); alert('Stopped sharing your live location'); };
-  $('#mapClose').onclick = ()=>{ $('#mapModal').style.display = 'none'; };
+  $('#mapClose').onclick = ()=>{ $('#mapModal').style.display = 'none'; if(mapAutoTimer){ clearInterval(mapAutoTimer); mapAutoTimer = null; } };
+  if(mapAutoTimer) clearInterval(mapAutoTimer);
+  mapAutoTimer = setInterval(()=>updateMapForOrder(o), 5000);
 }
 function openMapForAdmin(orderId){
   const o = orders.find(x=>x.id===orderId); if(!o) return alert('Order not found');
   currentMapOrder = o; $('#mapTitle').textContent = `Order ${o.id} — Admin view`; $('#mapModal').style.display = 'flex'; ensureMapInitialized(); updateMapForOrder(o);
   $('#mapRefresh').onclick = ()=>updateMapForOrder(o);
   $('#mapStop').onclick = ()=>{ stopVendorLive(o.id); stopCustomerLive(o.id); alert('Stopped live tracking for this order (admin)'); };
-  $('#mapClose').onclick = ()=>{ $('#mapModal').style.display = 'none'; };
+  $('#mapClose').onclick = ()=>{ $('#mapModal').style.display = 'none'; if(mapAutoTimer){ clearInterval(mapAutoTimer); mapAutoTimer = null; } };
+  if(mapAutoTimer) clearInterval(mapAutoTimer);
+  mapAutoTimer = setInterval(()=>updateMapForOrder(o), 5000);
 }
 
-/* ---------- Transactions & Transactions modal ---------- */
-function showTransactionsModal(email){
-  const u = findUserByEmail(email);
-  if(!u) return alert('User not found');
-  const panel = document.getElementById('modalCard');
-  $('#modalVendorPhoto').innerHTML = u.profile.photo ? `<img src="${u.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>` : `<div style="width:100%;height:100%;background:#eee"></div>`;
-  $('#modalVendorName').textContent = u.name + ` (${u.role})`;
-  $('#modalVendorBadge').innerHTML = u.badge ? '<span class="badge">Trusted</span>' : '';
-  $('#modalVendorDesc').textContent = `Transaction history for ${u.name}`;
-  $('#modalVendorRating').textContent = '';
-  $('#modalProductName').textContent = 'Transactions';
-  $('#modalProductImages').innerHTML = '';
-  $('#modalProductPrice').textContent = '';
-  $('#modalProductVendorInfo').textContent = '';
-  $('#modalReviews').innerHTML = (u.transactions||[]).map(t=>`<div style="border-top:1px solid #eee;padding:6px"><div style="font-weight:700">${t.type.toUpperCase()}</div><div class="small">${new Date(t.ts).toLocaleString()}</div><div class="${t.amount<0?'tx-debit':'tx-credit'}">${fmtNGN(t.amount)}</div><div class="small">${escapeHtml(t.note||'')}</div></div>`).join('') || '<div class="small">No transactions</div>';
-  $('#modalBuyBtn').style.display = 'none';
-  $('#modalBackdrop').style.display = 'flex';
-}
-
-/* ---------- Payment modal (top-up / withdraw) ---------- */
-let payMode = 'topup';
+/* ==================== Transactions & Payment modal ==================== */
 function openPayModal(mode){
-  payMode = mode;
   $('#payTitle').textContent = mode === 'topup' ? 'Top-up Wallet' : 'Withdraw from Wallet';
   $('#payDesc').textContent = mode === 'topup' ? 'Simulated top-up via card (dummy).' : 'Simulated withdrawal request (dummy).';
-  $('#payForm').onsubmit = handlePaySubmit;
+  $('#payForm').onsubmit = (e)=>handlePaySubmit(e, mode);
   $('#payModal').style.display = 'flex';
 }
 function closePayModal(){ $('#payModal').style.display = 'none'; $('#payForm').onsubmit = null; $('#payForm').reset(); }
-function handlePaySubmit(e){
+function handlePaySubmit(e, mode){
   e.preventDefault();
   const amount = Number($('#payAmount').value) || 0;
   if(amount <= 0) return alert('Enter a positive amount');
   const me = getUserById(session.userId);
-  if(payMode === 'topup'){
-    // Simulate success
-    me.balance = Number((me.balance + amount).toFixed(2));
-    addTransaction(me.email,'credit', amount, 'Top-up (card)');
-    persist();
-    alert(`Top-up successful: ${fmtNGN(amount)}`);
-    closePayModal(); renderApp();
+  if(mode === 'topup'){
+    me.balance = Number((me.balance + amount).toFixed(2)); addTransaction(me.email,'credit', amount, 'Top-up (card)'); persist(); alert(`Top-up successful: ${fmtNGN(amount)}`); closePayModal(); renderApp();
   } else {
-    // withdraw: check balance
     if(me.balance < amount) return alert('Insufficient funds');
-    me.balance = Number((me.balance - amount).toFixed(2));
-    addTransaction(me.email,'debit', -amount, 'Withdrawal (simulated)');
-    persist();
-    alert(`Withdrawal processed (simulated): ${fmtNGN(amount)}`);
-    closePayModal(); renderApp();
+    me.balance = Number((me.balance - amount).toFixed(2)); addTransaction(me.email,'debit', -amount, 'Withdrawal (simulated)'); persist(); alert(`Withdrawal processed (simulated): ${fmtNGN(amount)}`); closePayModal(); renderApp();
   }
 }
 
-/* ---------- Utilities ---------- */
-function getCurrentPosition(options){ return new Promise((res,rej)=>{ if(!navigator.geolocation) return rej(new Error('Geolocation not supported')); navigator.geolocation.getCurrentPosition(res,rej,options||{ enableHighAccuracy:true, timeout:10000 }); }); }
-function fileToBase64(file){ return new Promise((res,rej)=>{ const fr = new FileReader(); fr.onload = e=>res(e.target.result); fr.onerror = rej; fr.readAsDataURL(file); }); }
+/* transactions modal using product modal view */
+function showTransactionsModal(email){
+  const u = findUserByEmail(email); if(!u) return alert('User not found');
+  $('#pmVendorPhoto').innerHTML = u.profile.photo ? `<img src="${u.profile.photo}" style="width:100%;height:100%;object-fit:cover"/>` : `<div style="width:100%;height:100%;background:#eee"></div>`;
+  $('#pmVendorName').textContent = u.name + ` (${u.role})`; $('#pmVendorBadge').innerHTML = u.badge ? '<span class="badge">Trusted</span>' : '';
+  $('#pmVendorDesc').textContent = `Transaction history for ${u.name}`; $('#pmVendorRating').textContent = '';
+  $('#pmProductName').textContent = 'Transactions'; $('#pmProductImages').innerHTML = '';
+  $('#pmProductPrice').textContent = ''; $('#pmProductVendorInfo').textContent = '';
+  $('#pmReviews').innerHTML = (u.transactions||[]).map(t=>`<div style="border-top:1px solid #eee;padding:6px"><div style="font-weight:700">${t.type.toUpperCase()}</div><div class="small">${new Date(t.ts).toLocaleString()}</div><div class="${t.amount<0?'tx-debit':'tx-credit'}">${fmtNGN(t.amount)}</div><div class="small">${escapeHtml(t.note||'')}</div></div>`).join('') || '<div class="small">No transactions</div>';
+  $('#pmBuyBtn').style.display = 'none';
+  $('#productModal').style.display = 'flex';
+}
+
+/* ==================== Utility functions ==================== */
+function getCurrentPosition(options){ return new Promise((res, rej)=>{ if(!navigator.geolocation) return rej(new Error('Geolocation not supported')); navigator.geolocation.getCurrentPosition(res, rej, options||{ enableHighAccuracy:true, timeout:10000 }); }); }
+function fileToBase64(file){ return new Promise((res, rej)=>{ const fr = new FileReader(); fr.onload = e=>res(e.target.result); fr.onerror = rej; fr.readAsDataURL(file); }); }
 function showConfirm(text, onYes){ $('#confirmText').textContent = text; $('#confirmModal').style.display = 'flex'; const yes = $('#confirmYes'), no = $('#confirmNo'); yes.onclick = ()=>{ $('#confirmModal').style.display = 'none'; onYes && onYes(); }; no.onclick = ()=>{ $('#confirmModal').style.display = 'none'; }; }
 function getVendorRating(vendor){ const r = vendor.reviews||[]; if(!r.length) return '0.0'; const avg = r.reduce((s,x)=>s+x.stars,0)/r.length; return Number(avg.toFixed(1)); }
 
-/* helper to start sharing customer location */
-function startSharingCustomer(orderId){ startCustomerLive(orderId); }
+/* ==================== Product modal quick open (used in admin/vendor/customer) ==================== */
+function openProductModalById(pid){ openProductModal(pid); }
 
-/* ---------- Debug expose ---------- */
+/* ==================== Misc helpers ==================== */
 window._LB = { users, products, orders, badgeRequests, persist };
 
-/* ---------- Initial render ---------- */
+/* ==================== Initial render ==================== */
 renderAuth();
+
+/* ensure mobile nav */
 window.addEventListener('resize', ()=>{ document.getElementById('mobileNav').style.display = window.innerWidth <= 720 ? 'flex' : 'none'; });
+
+/* -------------- Public functions used by inline handlers -------------- */
+window.adminSelectSuggestion = window.adminSelectSuggestion || function(uid){ /* defined earlier by renderAdmin */ };
+window.openProfileModal = openProfileModal;
+window.closeProfileModal = closeProfileModal;
+window.openPayModal = openPayModal;
+window.closePayModal = closePayModal;
+window.openProductModal = openProductModal;
+window.openProductModalById = openProductModalById;
+window.closeProductModal = closeProductModal;
+window.openMapForVendor = openMapForVendor;
+window.openMapForCustomer = openMapForCustomer;
+window.openMapForAdmin = openMapForAdmin;
+window.startSharingCustomer = startCustomerLive;
+window.showTransactionsModal = showTransactionsModal;
+window.openPayModal = openPayModal;
+window.cancelOrder = cancelOrder;
+window.cancelAcceptedOrderFlow = cancelAcceptedOrderFlow;
+window.openRatingModal = openRatingModal;
+
+/* Expose simple actions for small demos */
+window.renderAdmin = renderAdmin;
+window.renderVendor = renderVendor;
+window.renderCustomer = renderCustomer;
+
+/* If the user reloaded and session exists, restore session view */
+(function restoreSession(){
+  // no persistent session stored; session variable is in-memory only.
+  // If you want persistent session across reloads, store session.userId in localStorage and restore here.
+})();
 
 </script>
 </body>
